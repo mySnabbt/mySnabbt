@@ -1,0 +1,98 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+.App {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: #0066cc;
+  color: white;
+}
+
+.main-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1.5fr; /*Three columns for Categories, Items, and Order Summary */
+  grid-gap: 10px;
+  flex-grow: 1;
+  padding: 10px;
+}
+
+.categories-section {
+  grid-column: 1 / 2;
+  background-color: #d9f2f8;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  /* justify-content: space-between;
+
+  height: 100vh; Full height of the screen */
+}
+
+.categories-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.categories-section li {
+  cursor: pointer;
+  margin: 5px 0;
+  padding: 5px 10px;
+  background-color: #f0f8ff;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.categories-section li:hover {
+  background-color: #cce7ff;
+}
+
+.admin-options {
+  margin-top: auto;
+}
+
+.admin-options button {
+  display: block;
+  margin: 10px 0;
+  padding: 10px;
+  width: 100%;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.admin-options button:hover {
+  background-color: #004c99;
+}
+
+.items-section {
+  grid-column: 2 / 3;
+  background-color: #aee3d0;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.order-summary-section {
+  grid-column: 3 / 4; /* Position this section to the right of the items section */
+  background-color: #add8e6;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
