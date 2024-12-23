@@ -21,26 +21,18 @@ body {
 
 .main-layout {
   display: grid;
-  grid-template-columns: 1fr 1.5fr 1.5fr; /*Three columns for Categories, Items, and Order Summary */
+  grid-template-columns: 1fr 1fr 1fr; /* Three columns for Categories, Items, and Order Summary */
   grid-gap: 10px;
   flex-grow: 1;
   padding: 10px;
 }
 
 .categories-section {
-  grid-column: 1 / 2;
+  grid-column: 3 / 4;
   background-color: #d9f2f8;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 8px;
-
-  display: flex;
-
-  flex-direction: column;
-
-  /* justify-content: space-between;
-
-  height: 100vh; Full height of the screen */
 }
 
 .categories-section ul {
@@ -62,7 +54,7 @@ body {
 }
 
 .admin-options {
-  margin-top: auto;
+  margin-top: 20px;
 }
 
 .admin-options button {
@@ -89,10 +81,30 @@ body {
   border-radius: 8px;
 }
 
-.order-summary-section {
-  grid-column: 3 / 4; /* Position this section to the right of the items section */
+.order-summary {
+  grid-column: 1 / 2; /* Position this section to the right of the items section */
   background-color: #add8e6;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
+
+.quantity-input {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pos-controller {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.main-layout > *:not(.categories-section) {
+  /* margin-top: auto; Push everything after the categories section to the bottom */
+} 
