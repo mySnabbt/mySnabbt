@@ -1,0 +1,19 @@
+.payment-window {
+    display: flex;
+    justify-content: space-around;
+    background-color: rgb(80, 235, 255);
+    position: fixed;
+    top: 110px;
+    right: 0;
+    left: 486.7px;
+    width: 65.6%; /* Covers the right half of the screen */
+    height: 84.6%;
+    border-radius: 8px;
+}
+
+.close-button {
+    margin-top: 0px;
+    padding: 0px 0px;
+    font-size: 16px;
+    cursor: pointer;
+}

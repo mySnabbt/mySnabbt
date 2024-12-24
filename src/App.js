@@ -4,6 +4,7 @@ import {items} from './Data';
 import Keypad from './Keypad';
 import ItemsSection from './ItemsSection';
 import OrderSummary from './OrderSummary';
+import PaymentWindow from './PaymentWindow';
 
 function App() {
     const [order, setOrder] = useState([]);
@@ -11,6 +12,7 @@ function App() {
     const [quantity, setQuantity] = useState(1);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedItem, setSelectedItem] = useState(null);
+    const [isPaymentWindowOpen, setPaymentWindowOpen] = useState(false);
 
     const clearTerminal = () => {
         setOrder([]);
@@ -19,10 +21,8 @@ function App() {
 
     const filteredItems = selectedCategory === 'Drinks'
             ? items.filter(item => item.id >= 1000 && item.id <= 1003)
-            : selectedCategory === 'Snacks'
-            ? items.filter(item => item.id >= 2000 && item.id <= 2003)
-            : selectedCategory === 'Meals'
-            ? items.filter(item => item.id >= 3000 && item.id <= 3003)
+            : selectedCategory === 'Food'
+            ? items.filter(item => item.id >= 2000 && item.id <= 3003)
             : items;
 
     const addItemToOrder = (item) => {
@@ -41,10 +41,18 @@ function App() {
             const updatedTotal = updatedOrder.reduce((sum, item) => sum + item.itemTotal, 0);
             setOrder(updatedOrder);
             setTotal(updatedTotal);
-            setSelectedItem(null)
+            setSelectedItem(null);
         } else {
             alert('No item selected');
         }
+    };
+
+    const openPaymentWindow = () => {
+        setPaymentWindowOpen(true);
+    };
+
+    const closePaymentWindow = () => {
+        setPaymentWindowOpen(false);
     };
 
     return (
@@ -58,6 +66,8 @@ function App() {
                     order={order}
                     total={total}
                     clearTerminal={clearTerminal}
+                    selectedItem={selectedItem}
+                    setSelectedItem={setSelectedItem}
                 ></OrderSummary>
                 <ItemsSection
                     items={filteredItems}
@@ -68,8 +78,7 @@ function App() {
                     <ul>
                         <div className="category-buttons">
                             <button onClick={() => setSelectedCategory('Drinks')}>Drinks</button>
-                            <button onClick={() => setSelectedCategory('Snacks')}>Snacks</button>
-                            <button onClick={() => setSelectedCategory('Meals')}>Meals</button>
+                            <button onClick={() => setSelectedCategory('Food')}>Food</button>
                         </div>
                     </ul>
                     <div className="quantity-input">
@@ -85,10 +94,14 @@ function App() {
                         setQuantity={setQuantity} 
                         clearTerminal={clearTerminal} 
                         removeItem={removeItem}
+                        openPaymentWindow={openPaymentWindow}
                     />
                 </section>
                 
             </main>
+            {isPaymentWindowOpen && (
+                <PaymentWindow closePaymentWindow={closePaymentWindow} />
+            )}
         </div>
     );
 }

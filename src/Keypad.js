@@ -1,7 +1,7 @@
 import React from 'react';
 import './Keypad.css';
 
-function Keypad({ quantity, setQuantity, clearTerminal, removeItem }) {
+function Keypad({ quantity, setQuantity, clearTerminal, removeItem, openPaymentWindow }) {
     const handleKeyPress = (number) => {
         if (number === 'Clear') {
             setQuantity(0);
@@ -16,6 +16,8 @@ function Keypad({ quantity, setQuantity, clearTerminal, removeItem }) {
         } else if (number === 'Remove Item') {
             removeItem();
 
+        } else if (number === 'Payment') {
+            openPaymentWindow();
         } else {
             setQuantity(parseInt(`${quantity}${number}`, 10));
         }
@@ -27,6 +29,7 @@ function Keypad({ quantity, setQuantity, clearTerminal, removeItem }) {
                 <button key={num} onClick={() => handleKeyPress(num)} className="keypad-button">
                     {num}
                 </button>
+
             ))}
         </div>
     );

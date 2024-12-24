@@ -1,0 +1,16 @@
+.items-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: stretch;
+    background-color: #aee3d0;
+}
+
+.items-list {
+    
+}
+
+.customise-item {
+    background-color: rgb(130, 219, 190);
+    height: 100%;
+    border-radius: 8px;
+}

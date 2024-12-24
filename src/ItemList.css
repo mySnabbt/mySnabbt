@@ -3,6 +3,11 @@
     padding: 10px;
     border-radius: 8px;
 }
+.item-categories {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+}
 
 .item-button {
     width: 100%;

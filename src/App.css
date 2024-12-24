@@ -33,6 +33,9 @@ body {
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .categories-section ul {
@@ -53,6 +56,11 @@ body {
   background-color: #cce7ff;
 }
 
+.category-buttons {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
 .admin-options {
   margin-top: 20px;
 }
@@ -75,7 +83,6 @@ body {
 
 .items-section {
   grid-column: 2 / 3;
-  background-color: #aee3d0;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 8px;
