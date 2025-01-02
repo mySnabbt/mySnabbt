@@ -59,4 +59,42 @@ router.post('/', async (req, res) => {
     }
 });
 
+// GET route to fetch all orders with their items
+router.get('/', async (req, res) => {
+    try {
+        const ordersQuery = `
+            SELECT 
+                o.order_id, 
+                o.customer_id, 
+                o.order_date, 
+                o.total, 
+                o.status, 
+                json_agg(
+                    json_build_object(
+                        'product_id', oi.product_id,
+                        'quantity', oi.quantity,
+                        'price_each', oi.price_each
+                    )
+                ) AS items
+            FROM 
+                pos.orders o
+            LEFT JOIN 
+                pos.order_items oi 
+            ON 
+                o.order_id = oi.order_id
+            GROUP BY 
+                o.order_id
+            ORDER BY 
+                o.order_date DESC;
+        `;
+
+        const result = await db.query(ordersQuery);
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching orders:', error);
+        res.status(500).json({ error: 'Failed to fetch orders' });
+    }
+});
+
+
 module.exports = router;

@@ -55,23 +55,29 @@ function App() {
         setPaymentWindowOpen(false);
     };
 
-    const submitOrder = async () => {
+    const submitOrder = async (customerId) => {
         const groupedItems = order.reduce((acc, item) => {
             const existing = acc.find(i => i.productId === item.id);
             if (existing) {
                 existing.quantity += item.quantity;
             } else {
-                acc.push({ productId: item.id, quantity: item.quantity, priceEach: item.price });
+                acc.push({
+                    productId: item.id,
+                    quantity: item.quantity,
+                    priceEach: item.price // Ensure priceEach matches the server's requirements
+                });
             }
             return acc;
         }, []);
     
         const orderData = {
-            customerId: 1,
+            customerId: 1, // Use the dynamic customer ID here
             items: groupedItems,
-            total: total,
-            status: 'PENDING'
+            total: total, // Ensure total is accurate
+            status: 'PENDING' // Confirm the server expects this value
         };
+    
+        console.log('Submitting orderData:', JSON.stringify(orderData, null, 2)); // Log the payload
     
         try {
             const response = await fetch('http://localhost:5000/api/orders', {
@@ -81,13 +87,16 @@ function App() {
             });
     
             if (!response.ok) {
+                // Log server error details for debugging
+                const errorDetails = await response.text();
+                console.error('Server response:', errorDetails);
                 throw new Error('Failed to submit order');
             }
     
             const data = await response.json();
             alert(`Order submitted successfully! Order ID: ${data.orderId}`);
-            setOrder([]);
-            setTotal(0);
+            setOrder([]); // Clear the order after submission
+            setTotal(0);  // Reset the total
         } catch (error) {
             console.error('Error submitting order:', error);
             alert('Failed to submit the order. Please try again.');
