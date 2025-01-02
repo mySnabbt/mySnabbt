@@ -55,6 +55,46 @@ function App() {
         setPaymentWindowOpen(false);
     };
 
+    const submitOrder = async () => {
+        const groupedItems = order.reduce((acc, item) => {
+            const existing = acc.find(i => i.productId === item.id);
+            if (existing) {
+                existing.quantity += item.quantity;
+            } else {
+                acc.push({ productId: item.id, quantity: item.quantity, priceEach: item.price });
+            }
+            return acc;
+        }, []);
+    
+        const orderData = {
+            customerId: 1,
+            items: groupedItems,
+            total: total,
+            status: 'PENDING'
+        };
+    
+        try {
+            const response = await fetch('http://localhost:5000/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData)
+            });
+    
+            if (!response.ok) {
+                throw new Error('Failed to submit order');
+            }
+    
+            const data = await response.json();
+            alert(`Order submitted successfully! Order ID: ${data.orderId}`);
+            setOrder([]);
+            setTotal(0);
+        } catch (error) {
+            console.error('Error submitting order:', error);
+            alert('Failed to submit the order. Please try again.');
+        }
+    };
+    
+
     return (
         <div className="App">
             <header className="app-header">
@@ -88,6 +128,10 @@ function App() {
                             value={quantity}
                             onChange={(e) => setQuantity(Number(e.target.value))}
                         />
+                    </div>
+                    <div className="order-summary-divider">
+                        <button onClick={submitOrder}>Submit Order</button>
+                        <h4>Order Total: ${total.toFixed(2)}</h4>
                     </div>
                     <Keypad 
                         quantity={quantity} 
