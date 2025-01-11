@@ -1,21 +1,22 @@
 import React from 'react';
 import './OrderSummary.css';
 
-function OrderSummary({ order, total, clearOrder, setSelectedItem, selectedItem }) {
+function OrderSummary({ order, total, clearOrder, setSelectedItem, selectedItem, amountGiven, paidAmount, leftAmount }) {
+    
     return (
         <div className="order-summary">
             <h2>Order Summary</h2>
-            <ul>
+            <div>
                 {order.map((item) => (
                     <li
-                        key={item.id}
+                        key={item.uniqueId}
                         onClick={() => {
                             setSelectedItem(item);
                             console.log('Clicked item:', item);
                         }}
                         style={{
                             cursor: 'pointer',
-                            backgroundColor: selectedItem?.id === item.id ? 'Red' : 'transparent',
+                            backgroundColor: selectedItem?.uniqueId === item.uniqueId ? 'Turquoise' : 'transparent',
                         }}
                         className='order-item-appearance'
                     >
@@ -24,7 +25,14 @@ function OrderSummary({ order, total, clearOrder, setSelectedItem, selectedItem 
                         <span className="order-item-total">${item.itemTotal.toFixed(2)}</span>
                     </li>
                 ))}
-            </ul>
+            </div>
+            {paidAmount > 0 && (
+                <div className="status">
+                    <h3>Paid Amount: ${paidAmount.toFixed(2)}</h3>
+                    <h3>Left Amount: ${leftAmount.toFixed(2)}</h3>
+                </div>
+            )}
+
             <div className="order-summary-divider">
                 <button onClick={clearOrder}>Save Sale</button>{/*implement saveOrder function */}
                 <h4>Order Total: ${total.toFixed(2)}</h4>
