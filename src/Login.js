@@ -21,13 +21,13 @@ function Login({ user, setUser, pass, setPass }) {
             <h2>Login</h2>
             <label>User Pin: </label>
             <input onClick={handleUserActive}
-                type="number"
+                type="text"
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
             />
             <label>Pass Key: </label>
             <input onClick={handlePassActive}
-                type="number"
+                type="text"
                 value={pass}
                 onChange={(e) => setPass(e.target.value)}
             />

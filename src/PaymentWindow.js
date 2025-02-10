@@ -10,6 +10,10 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
     const [isFullPayment, setIsFullPayment] = useState(false);
     const [status, setStatus] = useState(false);
     const [tick, setTick] = useState(false);
+    const [paymentStatus, setPaymentStatus] = useState('Unpaid');
+    const [transactionStatus, setTransactionStatus] = useState(null); // New state for transaction status
+    const [declineStatus, setDeclineStatus] = useState(null); //To simulate a declined transaction
+    const [retry, setRetry] = useState(0);
     
     const orderTotal= total;
     const change = amountGiven - orderTotal ;
@@ -31,6 +35,48 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
         setIsFullPayment(true);
     };
 
+    //modify to achieve updation of payment details in both the payment window and the order summary simultaneously
+    const handlePaymentStatus = () => {
+        setPaymentStatus(true);
+        setAmountGiven(orderTotal);
+        updatePaymentDetails({ paidAmount, leftAmount: Math.max(leftAmount, 0) });
+        setTransactionStatus(null);
+        setIsFullPayment(false);
+    }
+
+    const handleCancel = () => {
+        // setPaymentStatus(false);
+        setPaymentStatus('Transaction Cancelled');
+        // setTransactionStatus('Transaction Cancelled');
+        setIsFullPayment(false);
+        if (retry===1) {
+            closePaymentWindow();
+        }
+
+    }
+
+    const handleRetry = () => {
+        if (paymentStatus === 'Transaction Declined') {
+            setRetry(1);
+        }
+    }
+
+    const handleSimulateDecline = () => {
+        setPaymentStatus('Transaction Declined');
+        setTransactionStatus(null);
+    }
+
+
+    // const handlePaymentStatus = () => {
+    //     setPaymentStatus((prevStatus) => !prevStatus);
+    //     setTransactionStatus(null); // Reset transaction status when toggling payment
+    // };
+    
+    // const handleCancel = () => {
+    //     setPaymentStatus(false); // Ensure it's not marked as paid
+    //     setTransactionStatus('Transaction Failed'); // Set transaction status
+    // };
+
     const handleSplitPaymentClick = () => {
         setIsSplitPayment(true);
         setIsFullPayment(false);
@@ -48,6 +94,7 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
         }
         setTick(false);
         setStatus(true);
+        updatePaymentDetails({ paidAmount: 0, leftAmount: 0 });
     }
 
     return (
@@ -81,37 +128,42 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
             ) : (
                 <section className="payment-section">
                     <div className="frame-11">
-                        <h3>${orderTotal}</h3>
+                        <h3>Order Total: ${orderTotal}</h3>
                         <div class name = "card-options">
                             <button onClick={handleFullPaymentClick} className = "full-button"> Pay in full</button>
                             <button onClick={handleSplitPaymentClick} className="keypad-button"> Split Payment </button>
                         </div>
                         {isFullPayment && (
                             <div className="full-pop-up">
-                                <button> Payment Status </button>
+                                <button onClick={handlePaymentStatus} className='b'> Payment Status : </button>
+                                {/* <h3> {transactionStatus ? transactionStatus : (paymentStatus ? 'Paid' : 'Unpaid')}</h3> */}
+                                <h3> {paymentStatus}</h3>
                                 <div className='card-full-box'>
                                     <h3> Payment Amount:</h3>
                                     <input
                                         type = "number"
-                                        value = {amountGiven}
+                                        value = {leftAmount}
                                         onChange={(e) => setAmountGiven(Number(e.target.value))} 
                                     />
                                 </div>
                                 <div className='card-full-box'>
-                                    <button> Cancel </button>
-                                    <button> Retry </button>
-                                    <button> Payment Receipt </button>
+                                    <button onClick ={handleCancel}> Cancel </button>
+                                    {/* {paymentStatus ? 'Transaction Successful' : 'Transaction Failed'} */}
+                                    <button onClick ={handleRetry}> Retry </button>
+                                    <button> Print Receipt </button>
+                                    <button onClick ={handleSimulateDecline}> decline </button>
                                 </div>
                             </div>
                         )}
                         {isSplitPayment && (
-                            <><h3> Amount to be paid: </h3><Keypad
+                            <><h3> Amount to be paid: ${paidAmount}</h3><Keypad
                                     quantity={amountGiven}
-                                    setQuantity={setAmountGiven} /></>
+                                    setQuantity={setAmountGiven} 
+                                    /></>
                         )}
 
                         <div className="Change">
-                            <h3>Paid Amount: {amountGiven}</h3>
+                            <h3>Paid Amount: ${paidAmount}</h3>
                         </div>
                         
                     </div>
