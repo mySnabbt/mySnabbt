@@ -3,12 +3,14 @@ body {
   font-family: Arial, sans-serif;
 }
 
+
 .App {
   text-align: center;
   display: flex;
   flex-direction: column;
   height: 100vh;
 }
+
 
 .app-header {
   display: flex;
@@ -19,6 +21,7 @@ body {
   color: white;
 }
 
+
 .main-layout {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr; /* Three columns for Categories, Items, and Order Summary */
@@ -26,6 +29,7 @@ body {
   flex-grow: 1;
   padding: 10px;
 }
+
 
 .categories-section {
   grid-column: 3 / 4;
@@ -38,10 +42,12 @@ body {
   justify-content: space-between;
 }
 
+
 .categories-section ul {
   list-style: none;
   padding: 0;
 }
+
 
 .categories-section li {
   cursor: pointer;
@@ -52,9 +58,11 @@ body {
   border: 1px solid #ccc;
 }
 
+
 .categories-section li:hover {
   background-color: #cce7ff;
 }
+
 
 .category-buttons {
   display: flex;
@@ -64,6 +72,7 @@ body {
 .admin-options {
   margin-top: 20px;
 }
+
 
 .admin-options button {
   display: block;
@@ -77,9 +86,11 @@ body {
   cursor: pointer;
 }
 
+
 .admin-options button:hover {
   background-color: #004c99;
 }
+
 
 .items-section {
   grid-column: 2 / 3;
@@ -87,6 +98,7 @@ body {
   border: 1px solid #ccc;
   border-radius: 8px;
 }
+
 
 .order-summary {
   grid-column: 1 / 2; /* Position this section to the right of the items section */
@@ -99,6 +111,7 @@ body {
   justify-content: space-between;
 }
 
+
 .quantity-input {
   margin-top: auto;
   display: flex;
@@ -106,12 +119,25 @@ body {
   gap: 10px;
 }
 
+
 .pos-controller {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.main-layout > *:not(.categories-section) {
-  /* margin-top: auto; Push everything after the categories section to the bottom */
-} 
+
+.box {
+  display: flex;
+  flex-direction: row;
+  gap: 50px;
+}
+.box1 {
+  display: grid;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+
+

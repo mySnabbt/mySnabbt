@@ -1,3 +1,21 @@
-.CustomiseItem {
-    background-color: rgb(255, 148, 127);
+.customisation-list {
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+
+.customisation-categories {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+}
+
+
+.customisation-button {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+    font-size: 16px;
+    cursor: pointer;
 }

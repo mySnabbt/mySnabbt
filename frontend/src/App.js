@@ -1,43 +1,105 @@
 import React, { useState } from 'react';
 import './App.css';
-import {items} from './Data';
+import Login from './Login';
+import { items } from './Data';
 import Keypad from './Keypad';
 import ItemsSection from './ItemsSection';
 import OrderSummary from './OrderSummary';
 import PaymentWindow from './PaymentWindow';
+import { customisations } from './CustomData';
 
 function App() {
+    const [user, setUser] = useState('');
+    const [pass, setPass] = useState('');
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [management] = useState(false);
+    const [mLogin, setMLogin] = useState(false);
+    const [displayManagementPage, setDisplayManagementPage] = useState(false);
+    const [status, setStatus] = useState(false);
     const [order, setOrder] = useState([]);
     const [total, setTotal] = useState(0);
     const [quantity, setQuantity] = useState(1);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedItem, setSelectedItem] = useState(null);
     const [isPaymentWindowOpen, setPaymentWindowOpen] = useState(false);
+    const [paymentDetails, setPaymentDetails] = useState({
+        paidAmount: 0,
+        leftAmount: 0,
+    });
+
+    const handleLogin = () => {
+        if (String(user).trim() !== '' && String(user) === '1234' && String(pass).trim() !== '' && String(pass) === '1234') {
+            setIsLoggedIn(true);
+            setUser('');
+            setPass('');
+        } else {
+            alert('Please enter a username to log in.');
+        }
+    };
+
+    const reLogin = () => {
+        if (total === 0) {
+            setIsLoggedIn(false);
+        }
+    };
+
+    const managementLogin = () => {
+        setIsLoggedIn(false);
+        setMLogin(true);
+        setDisplayManagementPage(true);
+    };
+
+    const closeManagementWindow = () => {
+        setDisplayManagementPage(false);
+    };
+
+    const openPaymentWindow = () => {
+        setPaymentWindowOpen(true);
+    };
+
+    const closePaymentWindow = () => {
+        setPaymentWindowOpen(false);
+        clearTerminal();
+    };
+
+    const updatePaymentDetails = (details) => {
+        setPaymentDetails(details);
+    };
 
     const clearTerminal = () => {
         setOrder([]);
         setTotal(0);
     };
 
+    const setTick = () => {
+        setStatus(true);
+    };
+
     const filteredItems = selectedCategory === 'Drinks'
-            ? items.filter(item => item.id >= 1000 && item.id <= 1003)
-            : selectedCategory === 'Food'
-            ? items.filter(item => item.id >= 2000 && item.id <= 3003)
-            : items;
+        ? items.filter(item => item.id >= 1000 && item.id <= 1003)
+        : selectedCategory === 'Food'
+        ? items.filter(item => item.id >= 2000 && item.id <= 3003)
+        : items;
+
+    const filteredCustomisations = selectedCategory === 'Food'
+        ? customisations.filter(customisation => customisation.id >= 10000 && customisation.id <= 10003)
+        : selectedCategory === 'Drinks'
+        ? customisations.filter(customisation => customisation.id >= 20000 && customisation.id <= 20003)
+        : customisations;
 
     const addItemToOrder = (item) => {
         const selectedQuantity = quantity === 0 ? 1 : quantity;
         const itemTotal = item.price * selectedQuantity;
+        const uniqueId = `${item.id}-${Date.now()}-${Math.random()}`;
 
-        setOrder([...order, { ...item, quantity: selectedQuantity, itemTotal }]);
+        setOrder([...order, { ...item, quantity: selectedQuantity, itemTotal, uniqueId }]);
         setTotal(total + itemTotal);
-
         setQuantity(1);
-    }
+    };
 
-    const removeItem = (item) => {
+    const removeItem = () => {
         if (selectedItem) {
-            const updatedOrder = order.filter((item) => item.id !== selectedItem.id);
+            const updatedOrder = order.filter((item) => item.uniqueId !== selectedItem.uniqueId);
             const updatedTotal = updatedOrder.reduce((sum, item) => sum + item.itemTotal, 0);
             setOrder(updatedOrder);
             setTotal(updatedTotal);
@@ -47,12 +109,8 @@ function App() {
         }
     };
 
-    const openPaymentWindow = () => {
-        setPaymentWindowOpen(true);
-    };
-
-    const closePaymentWindow = () => {
-        setPaymentWindowOpen(false);
+    const addCustomisationToOrder = (customisation) => {
+        // Customisation logic can be added here later
     };
 
     const submitOrder = async (customerId) => {
@@ -64,51 +122,60 @@ function App() {
                 acc.push({
                     productId: item.id,
                     quantity: item.quantity,
-                    priceEach: item.price // Ensure priceEach matches the server's requirements
+                    priceEach: item.price
                 });
             }
             return acc;
         }, []);
-    
+
         const orderData = {
-            customerId: 1, // Use the dynamic customer ID here
+            customerId: 1, // Use dynamic customerId if needed
             items: groupedItems,
-            total: total, // Ensure total is accurate
-            status: 'PENDING' // Confirm the server expects this value
+            total: total,
+            status: 'PENDING'
         };
-    
-        console.log('Submitting orderData:', JSON.stringify(orderData, null, 2)); // Log the payload
-    
+
+        console.log('Submitting orderData:', JSON.stringify(orderData, null, 2));
+
         try {
             const response = await fetch('http://localhost:5000/api/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(orderData)
             });
-    
+
             if (!response.ok) {
-                // Log server error details for debugging
                 const errorDetails = await response.text();
                 console.error('Server response:', errorDetails);
                 throw new Error('Failed to submit order');
             }
-    
+
             const data = await response.json();
             alert(`Order submitted successfully! Order ID: ${data.orderId}`);
-            setOrder([]); // Clear the order after submission
-            setTotal(0);  // Reset the total
+            setOrder([]);
+            setTotal(0);
         } catch (error) {
             console.error('Error submitting order:', error);
             alert('Failed to submit the order. Please try again.');
         }
     };
-    
+
+    if (!isLoggedIn || management === true) {
+        return (
+            <div className="App">
+                <Login user={user} setUser={setUser} pass={pass} setPass={setPass} />
+                <button onClick={handleLogin} className="login-button">
+                    Login
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="App">
             <header className="app-header">
                 <h1>Snabbt POS</h1>
-                <div className="username">Welcome, UserName</div>
+                <button onClick={reLogin}>Welcome, UserName</button>
             </header>
             <main className="main-layout">
                 <OrderSummary
@@ -117,11 +184,17 @@ function App() {
                     clearTerminal={clearTerminal}
                     selectedItem={selectedItem}
                     setSelectedItem={setSelectedItem}
-                ></OrderSummary>
+                    setStatus={status}
+                    status={status}
+                    paidAmount={paymentDetails.paidAmount}
+                    leftAmount={paymentDetails.leftAmount}
+                />
                 <ItemsSection
                     items={filteredItems}
                     addItemToOrder={addItemToOrder}
-                ></ItemsSection>
+                    customisations={filteredCustomisations}
+                    addCustomisationToOrder={addCustomisationToOrder}
+                />
                 <section className="categories-section">
                     <h2>Categories</h2>
                     <ul>
@@ -138,22 +211,35 @@ function App() {
                             onChange={(e) => setQuantity(Number(e.target.value))}
                         />
                     </div>
-                    <div className="order-summary-divider">
-                        <button onClick={submitOrder}>Submit Order</button>
-                        <h4>Order Total: ${total.toFixed(2)}</h4>
+                    <div className="box">
+                        <Keypad
+                            quantity={quantity}
+                            setQuantity={setQuantity}
+                            openPaymentWindow={openPaymentWindow}
+                        />
+                        <div className="box1">
+                            <button onClick={clearTerminal} className="button">Clear Terminal</button>
+                            <button onClick={removeItem} className="button">Remove Item</button>
+                            <button onClick={openPaymentWindow} className="button">Payment</button>
+                            <button onClick={submitOrder} className="button">Submit Order</button>
+                            <button onClick={managementLogin}>Management</button>
+                        </div>
+                        {displayManagementPage && (
+                            <div className="management">
+                                <h3>Management:</h3>
+                                <button onClick={closeManagementWindow} className="close-button">X</button>
+                            </div>
+                        )}
                     </div>
-                    <Keypad 
-                        quantity={quantity} 
-                        setQuantity={setQuantity} 
-                        clearTerminal={clearTerminal} 
-                        removeItem={removeItem}
-                        openPaymentWindow={openPaymentWindow}
-                    />
                 </section>
-                
             </main>
             {isPaymentWindowOpen && (
-                <PaymentWindow closePaymentWindow={closePaymentWindow} />
+                <PaymentWindow
+                    closePaymentWindow={closePaymentWindow}
+                    total={total}
+                    setTick={setTick}
+                    updatePaymentDetails={updatePaymentDetails}
+                />
             )}
         </div>
     );
