@@ -1,0 +1,59 @@
+.management-fullscreen {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  position: absolute;
+  top: 110px;
+  left: 10px;
+  width: 98.6%;
+  height: 84.6%;
+  background-color: #f0f0f0;
+  border-radius: 8px;
+}
+
+.management-sidebar {
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.management-main {
+    background-color: #6ab7ff;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.transaction-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.summary {
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: white;
+    border: none;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+}

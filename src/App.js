@@ -7,6 +7,7 @@ import ItemsSection from './ItemsSection';
 import OrderSummary from './OrderSummary';
 import PaymentWindow from './PaymentWindow';
 import {customisations} from './CustomData';
+import ManagementWindow from './ManagementWindow';
 
 function App() {
     const [user, setUser] = useState('');
@@ -22,6 +23,15 @@ function App() {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedItem, setSelectedItem] = useState(null);
     const [isPaymentWindowOpen, setPaymentWindowOpen] = useState(false);
+    const [isManagementWindowOpen, setManagementWindowOpen] = useState(false);
+    const [isManagementLoggedIn, setIsManagementLoggedIn] = useState(false);
+    const [managerUser, setManagerUser] = useState('');
+    const [managerPass, setManagerPass] = useState('');
+    const [showManagementLogin, setShowManagementLogin] = useState(false);
+    const [transactions, setTransactions] = useState([]);
+    const [managerUserActive, setManagerUserActive] = useState(false);
+    const [managerPassActive, setManagerPassActive] = useState(false);
+
 
     const handleLogin = () => {
         if (String(user).trim() !== '' && String(user) === '1234' && String(pass).trim() !== '' && String(pass) === '1234') {
@@ -33,16 +43,23 @@ function App() {
         }
     };
 
+    const handleManagementLogin = () => {
+        if (String(managerUser).trim() !== '' && String(managerUser) === '1234' && String(managerPass).trim() !== '' && String(managerPass) === '1234') {
+            setIsManagementLoggedIn(true);
+            setShowManagementLogin(false);
+            setManagerUser('');
+            setManagerPass('');
+        } else {
+            alert('Invalid management credentials');
+        }
+    };
+
+
     const reLogin = () => {
         if (total === 0) {
             setIsLoggedIn(false);
+            setTransactions([]);
         }
-    }
-
-    const managementLogin = () => {
-        setIsLoggedIn(false);
-        setMLogin(true);
-        setDisplayManagementPage(true);
     }
 
     const closeManagementWindow = () => {
@@ -56,6 +73,12 @@ function App() {
     const closePaymentWindow = () => {
         setPaymentWindowOpen(false);
         clearTerminal();
+    };
+
+    const openManagementWindow = () => {
+        setShowManagementLogin(true);
+        setDisplayManagementPage(true);
+        setManagementWindowOpen(true);
     };
 
     const [paymentDetails, setPaymentDetails] = useState({
@@ -74,6 +97,15 @@ function App() {
 
     const setTick = () => {
         setStatus(true);
+    };
+
+    const logTransaction = (orderSnapshot, totalSnapshot) => {
+    const currentTransaction = {
+        id: Date.now(),
+        items: [...orderSnapshot],
+        total: totalSnapshot,
+    };
+    setTransactions(prev => [...prev, currentTransaction]);
     };
 
     const filteredItems = selectedCategory === 'Drinks'
@@ -176,23 +208,46 @@ function App() {
                             <button onClick={clearTerminal} className='button'> Clear Terminal </button>
                             <button onClick={removeItem} className='button'> Remove Item </button>
                             <button onClick={openPaymentWindow} className='button'> Payment </button>
-                            <button onClick={managementLogin} > Management </button>
+                            {/* <button onClick={managementLogin} > Management </button> */}
+                            <button onClick={openManagementWindow} > Management </button>
+
                         </div>
-                        {displayManagementPage && (
-                            <div className="management">
-                                <h3> Management: </h3>
-                                <button onClick={closeManagementWindow} className='close-button'> X </button>
-                            </div>
+                        {showManagementLogin && !isManagementLoggedIn && (
+                                <Login
+                                    user={managerUser}
+                                    setUser={setManagerUser}
+                                    pass={managerPass}
+                                    setPass={setManagerPass}
+                                >
+                                    <button onClick={handleManagementLogin} className="login-button">
+                                        Login
+                                    </button>
+                                    <button onClick={() => setShowManagementLogin(false)} className="login-button">
+                                        Cancel
+                                    </button>
+                                </Login>
+                        )}
+
+                        {isManagementLoggedIn && displayManagementPage && (
+                            <ManagementWindow 
+                                closeManagementWindow={() => {
+                                    closeManagementWindow();
+                                    setIsManagementLoggedIn(false); // log out manager
+                                }}
+                                transactions={transactions}
+                            />
                         )}
                     </div>
                 </section>
             </main>
-            {isPaymentWindowOpen && (
+            {isPaymentWindowOpen && !isManagementLoggedIn && (
                 <PaymentWindow 
                     closePaymentWindow={closePaymentWindow} 
                     total={total} 
+                    order={order} 
                     setTick={setTick}
                     updatePaymentDetails={updatePaymentDetails}
+                    logTransaction={logTransaction} 
                 />
             )}
         </div>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './PaymentWindow.css';
 import Keypad from './Keypad';
 
-function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
+function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails, logTransaction }) {
     const [Cash, setCash] = useState(true);
     const [Card, setCard] = useState(false);
     const [amountGiven, setAmountGiven] = useState(0);
@@ -35,9 +35,9 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
         setIsFullPayment(true);
     };
 
-    //modify to achieve updation of payment details in both the payment window and the order summary simultaneously
     const handlePaymentStatus = () => {
         setPaymentStatus(true);
+        logTransaction(order, total)
         setAmountGiven(orderTotal);
         updatePaymentDetails({ paidAmount, leftAmount: Math.max(leftAmount, 0) });
         setTransactionStatus(null);
@@ -47,12 +47,10 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
     const handleCancel = () => {
         // setPaymentStatus(false);
         setPaymentStatus('Transaction Cancelled');
-        // setTransactionStatus('Transaction Cancelled');
         setIsFullPayment(false);
         if (retry===1) {
             closePaymentWindow();
         }
-
     }
 
     const handleRetry = () => {
@@ -66,17 +64,6 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
         setTransactionStatus(null);
     }
 
-
-    // const handlePaymentStatus = () => {
-    //     setPaymentStatus((prevStatus) => !prevStatus);
-    //     setTransactionStatus(null); // Reset transaction status when toggling payment
-    // };
-    
-    // const handleCancel = () => {
-    //     setPaymentStatus(false); // Ensure it's not marked as paid
-    //     setTransactionStatus('Transaction Failed'); // Set transaction status
-    // };
-
     const handleSplitPaymentClick = () => {
         setIsSplitPayment(true);
         setIsFullPayment(false);
@@ -86,6 +73,7 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
         setTick(true);
         setStatus(true);
         updatePaymentDetails({ paidAmount, leftAmount: Math.max(leftAmount, 0) });
+        logTransaction(order, total);
     }
 
     const handleClick = () => {
@@ -136,7 +124,6 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
                         {isFullPayment && (
                             <div className="full-pop-up">
                                 <button onClick={handlePaymentStatus} className='b'> Payment Status : </button>
-                                {/* <h3> {transactionStatus ? transactionStatus : (paymentStatus ? 'Paid' : 'Unpaid')}</h3> */}
                                 <h3> {paymentStatus}</h3>
                                 <div className='card-full-box'>
                                     <h3> Payment Amount:</h3>
@@ -148,7 +135,6 @@ function PaymentWindow({ closePaymentWindow, total, updatePaymentDetails }) {
                                 </div>
                                 <div className='card-full-box'>
                                     <button onClick ={handleCancel}> Cancel </button>
-                                    {/* {paymentStatus ? 'Transaction Successful' : 'Transaction Failed'} */}
                                     <button onClick ={handleRetry}> Retry </button>
                                     <button> Print Receipt </button>
                                     <button onClick ={handleSimulateDecline}> decline </button>

@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import './Login.css';
 import LoginKeypad from './LoginKeypad';
 
-function Login({ user, setUser, pass, setPass }) {
+function Login({ user, setUser, pass, setPass, title = "Login", children }) {
     const [userActive, setUserActive] = useState(false);
     const [passActive, setPassActive] = useState(false);
 
@@ -18,7 +18,7 @@ function Login({ user, setUser, pass, setPass }) {
 
     return (
         <div className="login">
-            <h2>Login</h2>
+            <h2>{title}</h2>
             <label>User Pin: </label>
             <input onClick={handleUserActive}
                 type="text"
@@ -27,7 +27,7 @@ function Login({ user, setUser, pass, setPass }) {
             />
             <label>Pass Key: </label>
             <input onClick={handlePassActive}
-                type="text"
+                type="password"
                 value={pass}
                 onChange={(e) => setPass(e.target.value)}
             />
@@ -39,6 +39,7 @@ function Login({ user, setUser, pass, setPass }) {
                 userActive={userActive}
                 passActive={passActive}
             />
+            {children}
             
 
         </div>
