@@ -1,8 +1,29 @@
 import React, { useState } from 'react';
 import './ManagementWindow.css';
 
+
 function ManagementWindow({ closeManagementWindow, transactions }) {
     const [selectedOption, setSelectedOption] = useState('');
+    const [todaySales, setTodaySales] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [salesError, setSalesError] = useState(null);
+
+    const fetchTodaysSales = async () => {
+        setLoading(true);
+        setSalesError(null);
+        try {
+            const response = await fetch('http://localhost:5000/api/orders/today');
+            const data = await response.json();
+            setTodaySales(data);
+            setSelectedOption('sales'); // Switch to 'sales' view
+        } catch (error) {
+            console.error('Error fetching today’s sales:', error);
+            setSalesError('Failed to load sales data.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     return (
         <div className="management-fullscreen">
@@ -11,7 +32,7 @@ function ManagementWindow({ closeManagementWindow, transactions }) {
                 <ul className="management-options">
                     <li onClick={() => setSelectedOption('editMenu')}>Edit Menu</li>
                     <li onClick={() => setSelectedOption('refund')}>Initiate Refund</li>
-                    <li onClick={() => setSelectedOption('sales')}>Sales Made Today</li>
+                    <li onClick={fetchTodaysSales}>Show Sales Today</li>
                 </ul>
                 <h4>Administrator options</h4>
                 <ul className="admin-options">
@@ -29,21 +50,23 @@ function ManagementWindow({ closeManagementWindow, transactions }) {
                 {selectedOption === 'sales' && (
                     <div className="transaction-card">
                         <h3 className="heading">Transactions:</h3>
-                        {transactions.length === 0 ? (
+                        {loading ? (
+                            <p>Loading...</p>
+                        ) : salesError ? (
+                            <p style={{ color: 'red' }}>{salesError}</p>
+                        ) : todaySales.length === 0 ? (
                             <p>No sales made today.</p>
                         ) : (
-                            transactions.map((txn, index) => (
-                                <div key={txn.id} className="transaction-card">
-                                    <h4>Transaction {index + 1}</h4>
-                                    {txn.items.map(item => (
-                                        <div className="transaction-item" key={item.uniqueId}>
-                                            <div>
-                                                {item.name}<br />
-                                                <small>{item.description || ''}</small>
-                                            </div>
-                                            <span>${item.itemTotal.toFixed(2)}</span>
-                                        </div>
-                                    ))}
+                            todaySales.map((txn) => (
+                                <div key={txn.order_id} className="transaction-card">
+                                    <h4>Transaction #{txn.order_id}</h4>
+                                    <ul>
+                                        {txn.items && txn.items.map((item, idx) => (
+                                            <li key={idx}>
+                                                Product ID: {item.product_id}, Quantity: {item.quantity}, Price Each: ${item.price_each}
+                                            </li>
+                                        ))}
+                                    </ul>
                                     <hr />
                                     <div className="summary">
                                         Revenue Generated: <strong>${txn.total.toFixed(2)}</strong>
@@ -54,6 +77,7 @@ function ManagementWindow({ closeManagementWindow, transactions }) {
                         <button className="print-btn">Print Sales Report Made Today</button>
                     </div>
                 )}
+
 
                 {selectedOption === 'editMenu' && (
                     <div className="management-placeholder">

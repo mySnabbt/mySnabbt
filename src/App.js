@@ -143,6 +143,67 @@ function App() {
     const addCustomisationToOrder = (customisation) => {
     
     }
+
+    const submitOrder = async (customerId) => {
+        const groupedItems = order.reduce((acc, item) => {
+            const existing = acc.find(i => i.productId === item.id);
+            if (existing) {
+                existing.quantity += item.quantity;
+            } else {
+                acc.push({
+                    productId: item.id,
+                    quantity: item.quantity,
+                    priceEach: item.price // Ensure priceEach matches the server's requirements
+                });
+            }
+            return acc;
+        }, []);
+    
+        const orderData = {
+            customerId: 1, // Use the dynamic customer ID here
+            items: groupedItems,
+            total: total, // Ensure total is accurate
+            status: 'PENDING' // Confirm the server expects this value
+        };
+    
+        console.log('Submitting orderData:', JSON.stringify(orderData, null, 2)); // Log the payload
+    
+        try {
+            const response = await fetch('http://localhost:5000/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData)
+            });
+    
+            if (!response.ok) {
+                // Log server error details for debugging
+                const errorDetails = await response.text();
+                console.error('Server response:', errorDetails);
+                throw new Error('Failed to submit order');
+            }
+    
+            const data = await response.json();
+            alert(`Order submitted successfully! Order ID: ${data.orderId}`);
+            setOrder([]); // Clear the order after submission
+            setTotal(0);  // Reset the total
+        } catch (error) {
+            console.error('Error submitting order:', error);
+            alert('Failed to submit the order. Please try again.');
+        }
+    };
+
+    const fetchTodaysSales = async () => {
+        try {
+            const response = await fetch('http://localhost:5000/api/orders/today');
+            const data = await response.json();
+            const totalSales = data.reduce((sum, order) => sum + order.total, 0);
+            alert(`Total sales today: $${totalSales.toFixed(2)}`);
+        } catch (error) {
+            console.error('Error fetching today’s sales:', error);
+            alert('Failed to fetch today’s sales');
+        }
+    };
+
     
     if (!isLoggedIn || management === true) {
         return (
@@ -196,6 +257,10 @@ function App() {
                             value={quantity}
                             onChange={(e) => setQuantity(Number(e.target.value))}
                         />
+                    </div>
+                    <div className="order-summary-divider">
+                        <button onClick={submitOrder}>Submit Order</button>
+                        <h4>Order Total: ${total.toFixed(2)}</h4>
                     </div>
                     <div className="box">
                         <Keypad 
