@@ -1,17 +1,20 @@
 import React from 'react';
 import './ItemList.css';
 
-function ItemList({ items, addItemToOrder }) {
+function ItemList({ items, addItemToOrder, setSelectedItem }) {
     return (
-        <div className="item-list">
-            <div className="item-categories">
-                {items.map((item) => (
-                    <button key={item.id} onClick={() => addItemToOrder(item)} className="item-button">
-                        {/* {item.name} - ${item.price} */}
-                        {item.name}
-                    </button>
-                ))}
-            </div>
+        <div>
+            {items.map(item => (
+                <button
+                    key={item.id}
+                    onClick={() => {
+                        addItemToOrder(item);
+                        setSelectedItem(item);
+                    }}
+                >
+                    {item.name}
+                </button>
+            ))}
         </div>
     );
 }

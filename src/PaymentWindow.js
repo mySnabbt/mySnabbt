@@ -15,10 +15,17 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
     const [declineStatus, setDeclineStatus] = useState(null); //To simulate a declined transaction
     const [retry, setRetry] = useState(0);
     
-    const orderTotal= total;
-    const change = amountGiven - orderTotal ;
-    const paidAmount = amountGiven;
-    const leftAmount = orderTotal - amountGiven;
+    // const orderTotal= total;
+    // const change = amountGiven - orderTotal ;
+    // const paidAmount = amountGiven;
+    // const leftAmount = orderTotal - amountGiven;
+    // const numericAmountGiven = parseFloat(amountGiven) || 0;
+    const numericAmountGiven = parseFloat(amountGiven) || 0; // If parsing fails (e.g., amountGiven is '.'), default to 0
+
+    const orderTotal = total;
+    const change = numericAmountGiven - orderTotal;
+    const paidAmount = numericAmountGiven; // paidAmount is now guaranteed to be a number
+    const leftAmount = orderTotal - numericAmountGiven;
 
     const openCardWindow = () => {
         setCard(true);
@@ -42,6 +49,7 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
         updatePaymentDetails({ paidAmount, leftAmount: Math.max(leftAmount, 0) });
         setTransactionStatus(null);
         setIsFullPayment(false);
+        setStatus(true);
     }
 
     const handleCancel = () => {
@@ -77,12 +85,15 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
     }
 
     const handleClick = () => {
-        if (tick===true) {
-            closePaymentWindow();
-        }
+        // if (tick===true) {
+        //     closePaymentWindow();
+        // }
+        closePaymentWindow(tick, status);
         setTick(false);
-        setStatus(true);
-        updatePaymentDetails({ paidAmount: 0, leftAmount: 0 });
+        //setStatus(true);
+        // if (setTick == true) {
+        //     updatePaymentDetails({ paidAmount: 0, leftAmount: 0 });
+        // }
     }
 
     return (
@@ -99,6 +110,7 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
                         <Keypad 
                             quantity={amountGiven}
                             setQuantity={setAmountGiven}
+                            decimal={true}
                         />
                         <button onClick = {handleTick} className = "summary-status"> ✓ </button>
                         <div className="Change">
@@ -128,7 +140,8 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
                                 <div className='card-full-box'>
                                     <h3> Payment Amount:</h3>
                                     <input
-                                        type = "number"
+                                        // type = "number"
+                                        type = "text"
                                         value = {leftAmount}
                                         onChange={(e) => setAmountGiven(Number(e.target.value))} 
                                     />
@@ -145,6 +158,7 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
                             <><h3> Amount to be paid: ${paidAmount}</h3><Keypad
                                     quantity={amountGiven}
                                     setQuantity={setAmountGiven} 
+
                                     /></>
                         )}
 
@@ -154,7 +168,7 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
                         
                     </div>
                     <div className="frame-2">
-                        <button onClick={closePaymentWindow} className='close-button'> X </button>
+                        <button onClick={() => closePaymentWindow(tick, status)} className='close-button'> X </button>
                         <h2>Payment Options</h2>
                         <button onClick={openCashWindow} className='method'> Cash </button>
                         <button onClick={openCardWindow} className='method'> Credit/Debit Card </button>

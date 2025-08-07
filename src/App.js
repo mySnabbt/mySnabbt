@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
 import './App.css';
 import Login from './Login';
-import {items} from './Data';
+import users from './Users';
+import { items } from './Data';
 import Keypad from './Keypad';
 import ItemsSection from './ItemsSection';
 import OrderSummary from './OrderSummary';
 import PaymentWindow from './PaymentWindow';
-import {customisations} from './CustomData';
+// CustomData is no longer needed since customisations are in Data.js
+// import {customisations} from './CustomData';
 import ManagementWindow from './ManagementWindow';
 
 function App() {
     const [user, setUser] = useState('');
     const [pass, setPass] = useState('');
     const [isLoggedIn, setIsLoggedIn] = useState(false); 
+    const [role, setRole] = useState('');
+    const [currentUser, setCurrentUser] = useState('');
     const [management] = useState(false);
     const [mLogin, setMLogin] = useState(false);
     const [displayManagementPage, setDisplayManagementPage] = useState(false);
@@ -32,10 +36,16 @@ function App() {
     const [managerUserActive, setManagerUserActive] = useState(false);
     const [managerPassActive, setManagerPassActive] = useState(false);
 
+    // --- LIFTED STATE UP: App.js is now the single source of truth for menu items ---
+    const [menuItems, setMenuItems] = useState(items);
+    // ---------------------------------------------------------------------------------
 
     const handleLogin = () => {
-        if (String(user).trim() !== '' && String(user) === '1234' && String(pass).trim() !== '' && String(pass) === '1234') {
+        const authUser = users.find(u => u.pin === String(user) && u.pass === String(pass));
+        if (authUser) {
             setIsLoggedIn(true);
+            setRole(authUser.role);
+            setCurrentUser(authUser.name);
             setUser('');
             setPass('');
         } else {
@@ -44,16 +54,18 @@ function App() {
     };
 
     const handleManagementLogin = () => {
-        if (String(managerUser).trim() !== '' && String(managerUser) === '1234' && String(managerPass).trim() !== '' && String(managerPass) === '1234') {
+        const authManager = users.find(u => u.pin === String(managerUser) && u.pass === String(managerPass) && u.role === 'manager');
+        if (authManager) {
             setIsManagementLoggedIn(true);
             setShowManagementLogin(false);
+            setRole(authManager.role);
+            setCurrentUser(authManager.name);
             setManagerUser('');
             setManagerPass('');
         } else {
             alert('Invalid management credentials');
         }
     };
-
 
     const reLogin = () => {
         if (total === 0) {
@@ -70,9 +82,12 @@ function App() {
         setPaymentWindowOpen(true);
     };
 
-    const closePaymentWindow = () => {
+    const closePaymentWindow = (tick, status) => {
         setPaymentWindowOpen(false);
-        clearTerminal();
+        if (tick || status) {
+            clearTerminal();
+            updatePaymentDetails({ paidAmount: 0, leftAmount: 0 })
+        }
     };
 
     const openManagementWindow = () => {
@@ -104,20 +119,10 @@ function App() {
         id: Date.now(),
         items: [...orderSnapshot],
         total: totalSnapshot,
+        user: currentUser
     };
     setTransactions(prev => [...prev, currentTransaction]);
     };
-
-    const filteredItems = selectedCategory === 'Drinks'
-            ? items.filter(item => item.id >= 1000 && item.id <= 1003)
-            : selectedCategory === 'Food'
-            ? items.filter(item => item.id >= 2000 && item.id <= 3003)
-            : items;
-    const filteredCustomisations = selectedCategory === 'Food'
-        ? customisations.filter(customisation => customisation.id >= 10000 && customisation.id <= 10003)
-        : selectedCategory === 'Drinks'
-        ? customisations.filter(customisation => customisation.id >= 20000 && customisation.id <= 20003)
-        : customisations;
 
     const addItemToOrder = (item) => {
         const selectedQuantity = quantity === 0 ? 1 : quantity;
@@ -141,8 +146,26 @@ function App() {
     };
 
     const addCustomisationToOrder = (customisation) => {
-    
-    }
+        if (!selectedItem) {
+            alert('Please select an item in the order to customise.');
+            return;
+        }
+
+        setOrder(prevOrder =>
+            prevOrder.map(item => {
+                if (item.uniqueId === selectedItem.uniqueId) {
+                    const updatedCustoms = [...(item.customisations || []), customisation];
+                    return {
+                        ...item,
+                        customisations: updatedCustoms,
+                        itemTotal: item.itemTotal + customisation.price,
+                    };
+                }
+                return item;
+            })
+        );
+        setTotal(prevTotal => prevTotal + customisation.price);
+    };
 
     const submitOrder = async (customerId) => {
         const groupedItems = order.reduce((acc, item) => {
@@ -153,20 +176,21 @@ function App() {
                 acc.push({
                     productId: item.id,
                     quantity: item.quantity,
-                    priceEach: item.price // Ensure priceEach matches the server's requirements
+                    priceEach: item.price,
+                    user: currentUser
                 });
             }
             return acc;
         }, []);
     
         const orderData = {
-            customerId: 1, // Use the dynamic customer ID here
+            customerId: 1,
             items: groupedItems,
-            total: total, // Ensure total is accurate
-            status: 'PENDING' // Confirm the server expects this value
+            total: total,
+            status: 'PENDING'
         };
     
-        console.log('Submitting orderData:', JSON.stringify(orderData, null, 2)); // Log the payload
+        console.log('Submitting orderData:', JSON.stringify(orderData, null, 2));
     
         try {
             const response = await fetch('http://localhost:5000/api/orders', {
@@ -176,7 +200,6 @@ function App() {
             });
     
             if (!response.ok) {
-                // Log server error details for debugging
                 const errorDetails = await response.text();
                 console.error('Server response:', errorDetails);
                 throw new Error('Failed to submit order');
@@ -184,8 +207,8 @@ function App() {
     
             const data = await response.json();
             alert(`Order submitted successfully! Order ID: ${data.orderId}`);
-            setOrder([]); // Clear the order after submission
-            setTotal(0);  // Reset the total
+            setOrder([]);
+            setTotal(0);
         } catch (error) {
             console.error('Error submitting order:', error);
             alert('Failed to submit the order. Please try again.');
@@ -203,7 +226,6 @@ function App() {
             alert('Failed to fetch today’s sales');
         }
     };
-
     
     if (!isLoggedIn || management === true) {
         return (
@@ -214,8 +236,7 @@ function App() {
                 </button>
             </div>
         );
-        
-    }  
+    }
 
     return (
         <div className="App">
@@ -234,20 +255,24 @@ function App() {
                     setStatus={status} 
                     status={status}
                     paidAmount={paymentDetails.paidAmount}
-                leftAmount={paymentDetails.leftAmount}
+                    leftAmount={paymentDetails.leftAmount}
                 ></OrderSummary>
                 <ItemsSection
-                    items={filteredItems}
+                    // --- PASS THE SHARED STATE AND CATEGORY DOWN AS PROPS ---
+                    items={menuItems}
+                    selectedCategory={selectedCategory}
+                    // --------------------------------------------------------
                     addItemToOrder={addItemToOrder}
-                    customisations={filteredCustomisations}
+                    selectedItem={selectedItem}
+                    setSelectedItem={setSelectedItem}
                     addCustomisationToOrder={addCustomisationToOrder}
                 ></ItemsSection>
                 <section className="categories-section">
                     <h2>Categories</h2>
                     <ul>
                         <div className="category-buttons">
-                            <button onClick={() => setSelectedCategory('Drinks')}>Drinks</button>
                             <button onClick={() => setSelectedCategory('Food')}>Food</button>
+                            <button onClick={() => setSelectedCategory('Drinks')}>Drinks</button>
                         </div>
                     </ul>
                     <div className="quantity-input">
@@ -268,14 +293,11 @@ function App() {
                             setQuantity={setQuantity} 
                             openPaymentWindow={openPaymentWindow}
                         />
-
                         <div className="box1">
                             <button onClick={clearTerminal} className='button'> Clear Terminal </button>
                             <button onClick={removeItem} className='button'> Remove Item </button>
                             <button onClick={openPaymentWindow} className='button'> Payment </button>
-                            {/* <button onClick={managementLogin} > Management </button> */}
                             <button onClick={openManagementWindow} > Management </button>
-
                         </div>
                         {showManagementLogin && !isManagementLoggedIn && (
                                 <Login
@@ -292,14 +314,17 @@ function App() {
                                     </button>
                                 </Login>
                         )}
-
                         {isManagementLoggedIn && displayManagementPage && (
                             <ManagementWindow 
                                 closeManagementWindow={() => {
                                     closeManagementWindow();
-                                    setIsManagementLoggedIn(false); // log out manager
+                                    setIsManagementLoggedIn(false);
                                 }}
                                 transactions={transactions}
+                                // --- PASS THE STATE AND SETTER DOWN AS PROPS ---
+                                menuItems={menuItems}
+                                setMenuItems={setMenuItems}
+                                // ------------------------------------------------
                             />
                         )}
                     </div>
