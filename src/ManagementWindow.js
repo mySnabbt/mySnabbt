@@ -1,330 +1,398 @@
 import React, { useState } from 'react';
 import './ManagementWindow.css';
 
-// Accept menuItems and setMenuItems as props from App.js
 function ManagementWindow({ closeManagementWindow, transactions, menuItems, setMenuItems }) {
-    const [selectedOption, setSelectedOption] = useState('');
-    const [todaySales, setTodaySales] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [salesError, setSalesError] = useState(null);
-    const [selectedCategory, setSelectedCategory] = useState('');
-    const [selectedItem, setSelectedItem] = useState(null);
-    const [showCustomisationPopup, setShowCustomisationPopup] = useState(false);
-    
-    // State for adding new items
-    const [isAddingItem, setIsAddingItem] = useState(false);
-    const [newItemName, setNewItemName] = useState('');
-    const [newItemPrice, setNewItemPrice] = useState(0);
-    const [newItemCategory, setNewItemCategory] = useState('Food');
+  const [selectedOption, setSelectedOption] = useState('');
+  const [todaySales, setTodaySales] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [salesError, setSalesError] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showCustomisationPopup, setShowCustomisationPopup] = useState(false);
 
-    // State for adding customisations/contaminants
-    const [isAddingCustomisation, setIsAddingCustomisation] = useState(false);
-    const [newCustomisationName, setNewCustomisationName] = useState('');
-    const [newCustomisationPrice, setNewCustomisationPrice] = useState(0);
-    const [isAddingContaminant, setIsAddingContaminant] = useState(false);
-    const [newContaminantName, setNewContaminantName] = useState('');
-    
-    // --- ALL FUNCTION DEFINITIONS ---
-    const fetchTodaysSales = async () => {
-        setLoading(true);
-        setSalesError(null);
-        try {
-            const response = await fetch('http://localhost:5000/api/orders/today');
-            const data = await response.json();
-            setTodaySales(data);
-            setSelectedOption('sales');
-        } catch (error) {
-            console.error('Error fetching today’s sales:', error);
-            setSalesError('Failed to load sales data.');
-        } finally {
-            setLoading(false);
-        }
+  // Add Item
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemPrice, setNewItemPrice] = useState(0);
+  const [newItemCategory, setNewItemCategory] = useState('Food');
+
+  // Add Customisation / Contaminant
+  const [isAddingCustomisation, setIsAddingCustomisation] = useState(false);
+  const [newCustomisationName, setNewCustomisationName] = useState('');
+  const [newCustomisationPrice, setNewCustomisationPrice] = useState(0);
+  const [isAddingContaminant, setIsAddingContaminant] = useState(false);
+  const [newContaminantName, setNewContaminantName] = useState('');
+
+  const fetchTodaysSales = async () => {
+    setLoading(true);
+    setSalesError(null);
+    try {
+      const res = await fetch('http://localhost:5000/api/orders/today');
+      const data = await res.json();
+      setTodaySales(data);
+      setSelectedOption('sales');
+    } catch (err) {
+      console.error('Error fetching today’s sales:', err);
+      setSalesError('Failed to load sales data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleItemSelect = (item) => {
+    setSelectedItem(item);
+    setShowCustomisationPopup(true);
+  };
+
+  const closeCustomisationPopup = () => {
+    setShowCustomisationPopup(false);
+    setSelectedItem(null);
+  };
+
+  const handleAddItem = () => {
+    const newId = menuItems.length > 0 ? Math.max(...menuItems.map(i => i.id)) + 1 : 1;
+    const newItem = {
+      id: newId,
+      name: newItemName,
+      price: Number(newItemPrice),
+      category: newItemCategory,
+      customisations: [],
+      contaminants: []
     };
-    
-    const handleItemSelect = (item) => {
-        setSelectedItem(item);
-        setShowCustomisationPopup(true);
-    };
+    setMenuItems([...menuItems, newItem]);
+    setNewItemName('');
+    setNewItemPrice(0);
+    setNewItemCategory('Food');
+    setIsAddingItem(false);
+  };
 
-    const closeCustomisationPopup = () => {
-        setShowCustomisationPopup(false);
-        setSelectedItem(null);
-    };
+  const handleAddCustomisation = () => {
+    if (!selectedItem || !newCustomisationName) return;
+    const newCustom = { id: Date.now(), name: newCustomisationName, price: Number(newCustomisationPrice) };
+    const updatedItem = { ...selectedItem, customisations: [...(selectedItem.customisations || []), newCustom] };
+    setMenuItems(menuItems.map(i => (i.id === selectedItem.id ? updatedItem : i)));
+    setSelectedItem(updatedItem);
+    setNewCustomisationName('');
+    setNewCustomisationPrice(0);
+    setIsAddingCustomisation(false);
+  };
 
-    const handleAddItem = () => {
-        const newId = menuItems.length > 0 ? Math.max(...menuItems.map(item => item.id)) + 1 : 1;
-        const newItem = {
-            id: newId,
-            name: newItemName,
-            price: newItemPrice,
-            category: newItemCategory,
-            customisations: [],
-            contaminants: []
-        };
-        setMenuItems([...menuItems, newItem]);
-        setNewItemName('');
-        setNewItemPrice(0);
-        setNewItemCategory('Food');
-        setIsAddingItem(false);
-    };
+  const handleAddContaminant = () => {
+    if (!selectedItem || !newContaminantName) return;
+    const updatedItem = { ...selectedItem, contaminants: [...(selectedItem.contaminants || []), newContaminantName] };
+    setMenuItems(menuItems.map(i => (i.id === selectedItem.id ? updatedItem : i)));
+    setSelectedItem(updatedItem);
+    setNewContaminantName('');
+    setIsAddingContaminant(false);
+  };
 
-    const handleAddCustomisation = () => {
-        if (!newCustomisationName || newCustomisationPrice === '') return;
-        const newCustomisation = { id: Date.now(), name: newCustomisationName, price: Number(newCustomisationPrice) };
-        const updatedItem = { ...selectedItem, customisations: [...selectedItem.customisations, newCustomisation] };
-        setMenuItems(menuItems.map(item => item.id === selectedItem.id ? updatedItem : item));
-        setSelectedItem(updatedItem);
-        setNewCustomisationName('');
-        setNewCustomisationPrice(0);
-        setIsAddingCustomisation(false);
-    };
+  const filteredItems = selectedCategory ? menuItems.filter(i => i.category === selectedCategory) : menuItems;
 
-    const handleAddContaminant = () => {
-        if (!newContaminantName) return;
-        const updatedItem = { ...selectedItem, contaminants: [...(selectedItem.contaminants || []), newContaminantName] };
-        setMenuItems(menuItems.map(item => item.id === selectedItem.id ? updatedItem : item));
-        setSelectedItem(updatedItem);
-        setNewContaminantName('');
-        setIsAddingContaminant(false);
-    };
+  return (
+    <div className="fixed inset-0 z-50">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={closeManagementWindow}
+      />
 
-    const filteredItems = selectedCategory
-        ? menuItems.filter(item => item.category === selectedCategory)
-        : menuItems;
+      {/* Panel container aligned to the right, overlapping Categories and Items */}
+      <div className="absolute top-[56px] right-3 bottom-3 flex gap-3">
+        {/* Sidebar (overlaps Categories column) */}
+        <aside className="w-72 rounded-lg bg-white shadow border p-3 flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold">Management</h3>
+            <button
+              className="rounded-md border px-2 py-1 text-sm"
+              onClick={closeManagementWindow}
+              aria-label="Close management window"
+            >
+              Close
+            </button>
+          </div>
 
-    return (
-        <div className="management-fullscreen">
-            <div className="management-sidebar">
-                <h3>Management Window</h3>
-                <ul className="management-options">
-                    <li onClick={() => setSelectedOption('editMenu')}>Edit Menu</li>
-                    <li onClick={() => setSelectedOption('refund')}>Initiate Refund</li>
-                    <li onClick={fetchTodaysSales}>Show Sales Today</li>
-                </ul>
-                <h4>Administrator options</h4>
-                <ul className="admin-options">
-                    <li onClick={() => setSelectedOption('roster')}>Employee Roster System</li>
-                    <li onClick={() => setSelectedOption('inventory')}>Inventory System</li>
-                </ul>
+          <ul className="space-y-2">
+            <li>
+              <button
+                onClick={() => setSelectedOption('editMenu')}
+                className={`w-full text-left rounded-md border px-3 py-2 ${selectedOption === 'editMenu' ? 'bg-gray-100' : ''}`}
+              >
+                Edit Menu
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => setSelectedOption('refund')}
+                className={`w-full text-left rounded-md border px-3 py-2 ${selectedOption === 'refund' ? 'bg-gray-100' : ''}`}
+              >
+                Initiate Refund
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={fetchTodaysSales}
+                className={`w-full text-left rounded-md border px-3 py-2 ${selectedOption === 'sales' ? 'bg-gray-100' : ''}`}
+              >
+                Show Sales Today
+              </button>
+            </li>
+          </ul>
+
+          <h4 className="mt-4 text-sm font-semibold">Administrator options</h4>
+          <ul className="mt-2 space-y-2">
+            <li>
+              <button
+                onClick={() => setSelectedOption('roster')}
+                className={`w-full text-left rounded-md border px-3 py-2 ${selectedOption === 'roster' ? 'bg-gray-100' : ''}`}
+              >
+                Employee Roster System
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => setSelectedOption('inventory')}
+                className={`w-full text-left rounded-md border px-3 py-2 ${selectedOption === 'inventory' ? 'bg-gray-100' : ''}`}
+              >
+                Inventory System
+              </button>
+            </li>
+          </ul>
+        </aside>
+
+        {/* Main panel (overlaps Items section) */}
+        <main className="w-[min(900px,60vw)] rounded-lg border bg-sky-200 p-4 shadow flex flex-col">
+          {/* Default placeholder */}
+          {selectedOption === '' && (
+            <div className="flex-1 grid place-items-center text-gray-700">
+              <p>Select an option from the sidebar.</p>
             </div>
+          )}
 
-            <div className="management-main">
-                {selectedOption === '' && (
-                    <div className="management-placeholder"></div>
-                )}
-                
-                {selectedOption === 'sales' && (
-                    <div className="transaction-card">
-                        <h3 className="heading">Transactions:</h3>
-                        {loading ? (
-                            <p>Loading...</p>
-                        ) : salesError ? (
-                            <p style={{ color: 'red' }}>{salesError}</p>
-                        ) : todaySales.length === 0 ? (
-                            <p>No sales made today.</p>
-                        ) : (
-                            todaySales.map((txn) => (
-                                <div key={txn.order_id} className="transaction-card">
-                                    <h4>Transaction #{txn.order_id}</h4>
-                                    <ul>
-                                        {txn.items && txn.items.map((item, idx) => (
-                                            <li key={idx}>
-                                                Product ID: {item.product_id}, Quantity: {item.quantity}, Price Each: ${item.price_each}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    <hr />
-                                    <div className="summary">
-                                        Revenue Generated: <strong>${txn.total.toFixed(2)}</strong>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                        <button className="print-btn">Print Sales Report Made Today</button>
+          {/* Sales Today */}
+          {selectedOption === 'sales' && (
+            <div className="flex-1 overflow-auto">
+              <h3 className="text-lg font-semibold mb-3">Transactions</h3>
+              {loading ? (
+                <p>Loading...</p>
+              ) : salesError ? (
+                <p className="text-red-600">{salesError}</p>
+              ) : todaySales.length === 0 ? (
+                <p>No sales made today.</p>
+              ) : (
+                <div className="space-y-3">
+                  {todaySales.map((txn) => (
+                    <div key={txn.order_id} className="rounded-md bg-white p-3 shadow border">
+                      <h4 className="font-semibold">Transaction #{txn.order_id}</h4>
+                      <ul className="mt-2 text-sm list-disc list-inside">
+                        {txn.items?.map((item, idx) => (
+                          <li key={idx}>
+                            Product ID: {item.product_id}, Quantity: {item.quantity}, Price Each: ${item.price_each}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="mt-2 flex items-center justify-between">
+                        <span>Revenue Generated:</span>
+                        <strong>${Number(txn.total).toFixed(2)}</strong>
+                      </div>
                     </div>
-                )}
+                  ))}
+                </div>
+              )}
+              <button className="mt-4 rounded-md border bg-white px-3 py-2">Print Sales Report Made Today</button>
+            </div>
+          )}
 
-                {selectedOption === 'editMenu' && (
-                    <>
-                        <div className="edit-menu1">
-                            <div className="edit-menu01">
-                                <button onClick={() => setIsAddingItem(true)}>Add Item</button>
-                                <button onClick={() => setSelectedCategory('Food')}>Food</button>
-                                <button onClick={() => setSelectedCategory('Drinks')}>Drinks</button>
-                            </div>
-                            
-                            <div className="edit-menu02">
-                                {selectedCategory === 'Food' ? (
-                                    <h3>Food Menu</h3>
-                                ) : selectedCategory === 'Drinks' ? (
-                                    <h3>Drinks Menu</h3>
-                                ) : (
-                                    null
-                                )}
-                                <div className="edit-menu021">
-                                    <div className="item-list">
-                                        {filteredItems.map((item) => (
-                                            <button
-                                                key={item.id}
-                                                onClick={() => handleItemSelect(item)}
-                                                className={`item-button ${selectedItem?.id === item.id ? 'selected' : ''}`}
-                                            >
-                                                {item.name} - ${item.price.toFixed(2)}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                
-                                <div className="edit-menu022">
-                                    <button> Export PDF </button>
-                                    <button> Publish Menu </button>
-                                </div>
-                            </div>
+          {/* Edit Menu */}
+          {selectedOption === 'editMenu' && (
+            <div className="flex-1 flex flex-col">
+              <div className="flex items-center gap-2 mb-3">
+                <button onClick={() => setIsAddingItem(true)} className="rounded-md border bg-white px-3 py-2">Add Item</button>
+                <button onClick={() => setSelectedCategory('Food')} className="rounded-md border bg-white px-3 py-2">Food</button>
+                <button onClick={() => setSelectedCategory('Drinks')} className="rounded-md border bg-white px-3 py-2">Drinks</button>
+              </div>
+
+              <div className="flex-1 overflow-auto rounded-md border bg-white p-3">
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {filteredItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleItemSelect(item)}
+                      className={`text-left rounded-md border px-3 py-2 ${selectedItem?.id === item.id ? 'bg-gray-100' : ''}`}
+                    >
+                      {item.name} - ${Number(item.price).toFixed(2)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                <button className="rounded-md border bg-white px-3 py-2">Export PDF</button>
+                <button className="rounded-md border bg-white px-3 py-2">Publish Menu</button>
+              </div>
+
+              {/* Add Item popup */}
+              {isAddingItem && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/40" onClick={() => setIsAddingItem(false)} />
+                  <div className="relative z-[61] w-[min(520px,90vw)] rounded-lg border bg-white p-4 shadow">
+                    <button className="absolute right-3 top-3 rounded-md border px-2 py-1 text-sm" onClick={() => setIsAddingItem(false)}>X</button>
+                    <h3 className="text-lg font-semibold mb-3">Add New Item</h3>
+                    <div className="grid gap-3">
+                      <label className="text-sm">
+                        Item Name:
+                        <input
+                          type="text"
+                          value={newItemName}
+                          onChange={(e) => setNewItemName(e.target.value)}
+                          className="mt-1 w-full rounded-md border px-2 py-1"
+                        />
+                      </label>
+                      <label className="text-sm">
+                        Price:
+                        <input
+                          type="number"
+                          value={newItemPrice}
+                          onChange={(e) => setNewItemPrice(e.target.value)}
+                          className="mt-1 w-full rounded-md border px-2 py-1"
+                        />
+                      </label>
+                      <label className="text-sm">
+                        Category:
+                        <select
+                          value={newItemCategory}
+                          onChange={(e) => setNewItemCategory(e.target.value)}
+                          className="mt-1 w-full rounded-md border px-2 py-1"
+                        >
+                          <option value="Food">Food</option>
+                          <option value="Drinks">Drinks</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="mt-3 flex items-center justify-end gap-2">
+                      <button className="rounded-md border px-3 py-2" onClick={() => setIsAddingItem(false)}>Cancel</button>
+                      <button className="rounded-md bg-gray-900 text-white px-3 py-2" onClick={handleAddItem}>Save Item</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Customisation popup */}
+              {showCustomisationPopup && selectedItem && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/40" onClick={closeCustomisationPopup} />
+                  <div className="relative z-[61] w-[min(720px,95vw)] rounded-lg border bg-white p-4 shadow">
+                    <button className="absolute right-3 top-3 rounded-md border px-2 py-1 text-sm" onClick={closeCustomisationPopup}>X</button>
+
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">
+                        {selectedItem.name} <span className="text-sm opacity-70">(Price: ${Number(selectedItem.price).toFixed(2)})</span>
+                      </h3>
+                    </div>
+
+                    <div className="mt-4 grid gap-6 md:grid-cols-2">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold">Customisations</h4>
+                          <button className="rounded-md border bg-white px-3 py-1 text-sm" onClick={() => setIsAddingCustomisation(true)}>Add</button>
                         </div>
 
-                        {isAddingItem && (
-                            <div className="add-item-popup">
-                                <button className="close-popup-btn" onClick={() => setIsAddingItem(false)}>X</button>
-                                <h3>Add New Item</h3>
-                                <div className="form-group">
-                                    <label>
-                                        Item Name:
-                                        <input
-                                            type="text"
-                                            value={newItemName}
-                                            onChange={(e) => setNewItemName(e.target.value)}
-                                        />
-                                    </label>
-                                    <label>
-                                        Price:
-                                        <input
-                                            type="number"
-                                            value={newItemPrice}
-                                            onChange={(e) => setNewItemPrice(Number(e.target.value))}
-                                        />
-                                    </label>
-                                    <label>
-                                        Category:
-                                        <select
-                                            value={newItemCategory}
-                                            onChange={(e) => setNewItemCategory(e.target.value)}
-                                        >
-                                            <option value="Food">Food</option>
-                                            <option value="Drinks">Drinks</option>
-                                        </select>
-                                    </label>
-                                </div>
-                                <button onClick={handleAddItem}>Save Item</button>
-                            </div>
+                        {isAddingCustomisation && (
+                          <div className="mb-3 flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="Name"
+                              value={newCustomisationName}
+                              onChange={(e) => setNewCustomisationName(e.target.value)}
+                              className="flex-1 rounded-md border px-2 py-1"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Price"
+                              value={newCustomisationPrice}
+                              onChange={(e) => setNewCustomisationPrice(e.target.value)}
+                              className="w-32 rounded-md border px-2 py-1"
+                            />
+                            <button className="rounded-md bg-gray-900 text-white px-3 py-1" onClick={handleAddCustomisation}>Save</button>
+                            <button className="rounded-md border px-3 py-1" onClick={() => setIsAddingCustomisation(false)}>Cancel</button>
+                          </div>
                         )}
 
-                        {showCustomisationPopup && selectedItem && (
-                            <div className="customisation-popup-overlay">
-                                <div className="customisation-popup">
-                                    <button className="close-popup-btn" onClick={closeCustomisationPopup}>X</button>
-                                    <div className="popup-header">
-                                        <h3>{selectedItem.name} <span className="edit-icon">✏️</span></h3>
-                                        <p>Price: <span>${selectedItem.price.toFixed(2)}</span></p>
-                                    </div>
+                        <ul className="rounded-md border divide-y">
+                          {(selectedItem.customisations || []).map((c) => (
+                            <li key={c.id} className="flex items-center justify-between px-3 py-2">
+                              <span>{c.name}</span>
+                              <span className="text-sm">${Number(c.price).toFixed(2)}</span>
+                            </li>
+                          ))}
+                          {(!selectedItem.customisations || selectedItem.customisations.length === 0) && (
+                            <li className="px-3 py-2 text-sm text-gray-600">No customisations.</li>
+                          )}
+                        </ul>
+                      </div>
 
-                                    <div className="customisations-section">
-                                        <h4>Customisations:</h4>
-                                        <button className="add-customisation-btn" onClick={() => setIsAddingCustomisation(true)}>
-                                            Add Customisation
-                                        </button>
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold">Contaminants</h4>
+                          <button className="rounded-md border bg-white px-3 py-1 text-sm" onClick={() => setIsAddingContaminant(true)}>Add</button>
+                        </div>
 
-                                        {isAddingCustomisation && (
-                                            <div className="add-form">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Name"
-                                                    value={newCustomisationName}
-                                                    onChange={(e) => setNewCustomisationName(e.target.value)}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Price"
-                                                    value={newCustomisationPrice}
-                                                    onChange={(e) => setNewCustomisationPrice(Number(e.target.value))}
-                                                />
-                                                <button onClick={handleAddCustomisation}>Save</button>
-                                                <button onClick={() => setIsAddingCustomisation(false)}>Cancel</button>
-                                            </div>
-                                        )}
-
-                                        <ul className="customisation-list">
-                                            {selectedItem.customisations && selectedItem.customisations.map((custom) => (
-                                                <li key={custom.id} className="customisation-item">
-                                                    <span className="handle">☰</span>
-                                                    <span className="customisation-label">{custom.name}</span>
-                                                    <button className="delete-customisation-btn">
-                                                        <span>-</span>
-                                                    </button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        {!selectedItem.customisations || selectedItem.customisations.length === 0 && (
-                                            <p>No customisations available for this item.</p>
-                                        )}
-                                    </div>
-
-                                    <div className="item-info-section">
-                                        <h4>Item Info:</h4>
-                                        <button className="add-contaminant-btn" onClick={() => setIsAddingContaminant(true)}>
-                                            Add contaminants
-                                        </button>
-
-                                        {isAddingContaminant && (
-                                            <div className="add-form">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Contaminant Name"
-                                                    value={newContaminantName}
-                                                    onChange={(e) => setNewContaminantName(e.target.value)}
-                                                />
-                                                <button onClick={handleAddContaminant}>Save</button>
-                                                <button onClick={() => setIsAddingContaminant(false)}>Cancel</button>
-                                            </div>
-                                        )}
-
-                                        <ul className="contaminant-list">
-                                            {selectedItem.contaminants && selectedItem.contaminants.map((contaminant, index) => (
-                                                <li key={index} className="contaminant-item">
-                                                    <span className="contaminant-label">{contaminant}</span>
-                                                    <button className="delete-contaminant-btn">
-                                                        <span>-</span>
-                                                    </button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                    <button className="save-btn">Save</button>
-                                </div>
-                            </div>
+                        {isAddingContaminant && (
+                          <div className="mb-3 flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="Contaminant Name"
+                              value={newContaminantName}
+                              onChange={(e) => setNewContaminantName(e.target.value)}
+                              className="flex-1 rounded-md border px-2 py-1"
+                            />
+                            <button className="rounded-md bg-gray-900 text-white px-3 py-1" onClick={handleAddContaminant}>Save</button>
+                            <button className="rounded-md border px-3 py-1" onClick={() => setIsAddingContaminant(false)}>Cancel</button>
+                          </div>
                         )}
-                    </>
-                )}
 
-                {selectedOption === 'refund' && (
-                    <div className="management-placeholder">
-                        <h3>Initiate Refund</h3>
+                        <ul className="rounded-md border divide-y">
+                          {(selectedItem.contaminants || []).map((name, idx) => (
+                            <li key={idx} className="flex items-center justify-between px-3 py-2">
+                              <span>{name}</span>
+                            </li>
+                          ))}
+                          {(!selectedItem.contaminants || selectedItem.contaminants.length === 0) && (
+                            <li className="px-3 py-2 text-sm text-gray-600">No contaminants.</li>
+                          )}
+                        </ul>
+                      </div>
                     </div>
-                )}
-                {selectedOption === 'roster' && (
-                    <div className="management-placeholder">
-                        <h3>Employee Roster System</h3>
+
+                    <div className="mt-4 flex items-center justify-end gap-2">
+                      <button className="rounded-md border px-3 py-2" onClick={closeCustomisationPopup}>Close</button>
+                      <button className="rounded-md bg-gray-900 text-white px-3 py-2">Save</button>
                     </div>
-                )}
-                {selectedOption === 'inventory' && (
-                    <div className="management-placeholder">
-                        <h3>Inventory System</h3>
-                    </div>
-                )}
+                  </div>
+                </div>
+              )}
             </div>
+          )}
 
-            <button className="close-btn" onClick={closeManagementWindow}>X</button>
-        </div>
-    );
+          {/* Placeholders for other sections */}
+          {selectedOption === 'refund' && (
+            <div className="flex-1 grid place-items-center text-gray-700">
+              <h3>Initiate Refund</h3>
+            </div>
+          )}
+          {selectedOption === 'roster' && (
+            <div className="flex-1 grid place-items-center text-gray-700">
+              <h3>Employee Roster System</h3>
+            </div>
+          )}
+          {selectedOption === 'inventory' && (
+            <div className="flex-1 grid place-items-center text-gray-700">
+              <h3>Inventory System</h3>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
 }
 
 export default ManagementWindow;

@@ -1,60 +1,61 @@
 import React from 'react';
 import './ItemsSection.css';
 import ItemList from './ItemList';
-import { customisations } from './CustomData';
 
-function ItemsSection({ items, addItemToOrder, selectedItem, setSelectedItem, addCustomisationToOrder }) {
-    const getCustomisations = () => {
-        if (!selectedItem) return [];
+function ItemsSection({
+  items,                // product catalog (with product.customisations)
+  addItemToOrder,
+  selectedItem,         // this should be the selected ORDER line (from OrderSummary)
+  setSelectedItem,
+  addCustomisationToOrder,
+}) {
+  // Find the product for the selected order line to read available customisations
+  const selectedProduct = selectedItem
+    ? items.find(p => p.id === selectedItem.id)
+    : null;
 
-        if (selectedItem.id >= 1000 && selectedItem.id < 2000) {
-            // Drinks
-            return customisations.filter(c => c.id >= 20000 && c.id <= 20003);
-        } else if (selectedItem.id >= 2000 && selectedItem.id < 4000) {
-            // Snacks and Meals
-            return customisations.filter(c => c.id >= 10000 && c.id <= 10003);
-        }
+  const availableCustomisations = selectedProduct?.customisations || [];
 
-        return [];
-    };
+  return (
+    <section className="h-full rounded-lg border bg-emerald-200/50 p-3 flex flex-col">
+      <h2 className="text-base font-semibold mb-2 text-center">Items</h2>
 
-    const relatedCustomisations = getCustomisations();
+      <div className="flex-1 overflow-auto pr-1">
+        <ItemList
+          items={items}
+          addItemToOrder={addItemToOrder}
+          // Do NOT setSelectedItem here; selection happens in OrderSummary
+        />
+      </div>
 
-    return (
-        <section className="items-section">
-            <h2>Items</h2>
-            <div className="items-list">
-                <ItemList
-                    items={items}
-                    addItemToOrder={addItemToOrder}
-                    setSelectedItem={setSelectedItem}
-                />
-            </div>
-
-            <div className="customise-item">
-                {selectedItem ? (
-                    <>
-                        <p><strong>Selected:</strong> {selectedItem.name}</p>
-                        {relatedCustomisations.length > 0 ? (
-                            relatedCustomisations.map(c => (
-                                <button
-                                    key={c.id}
-                                    onClick={() => addCustomisationToOrder(c)}
-                                    className="customisation-button"
-                                >
-                                    {c.name} (+${c.price.toFixed(2)})
-                                </button>
-                            ))
-                        ) : (
-                            <p>No customisations available</p>
-                        )}
-                    </>
-                ) : (
-                    <p>No item selected</p>
-                )}
-            </div>
-        </section>
-    );
+      <div className="mt-2 rounded-md bg-emerald-300/60 px-3 py-2">
+        {selectedItem ? (
+          <>
+            <p className="font-semibold text-center">
+              Selected line: {selectedItem.name}
+            </p>
+            {availableCustomisations.length > 0 ? (
+              <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {availableCustomisations.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => addCustomisationToOrder(c)}
+                    className="customisation-button rounded-md border px-3 py-2 text-sm bg-white/70"
+                  >
+                    {c.name} (+${c.price.toFixed(2)})
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-700 mt-1">No customisations available for this product.</p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-gray-700">Select a line in the Order Summary to add customisations.</p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export default ItemsSection;

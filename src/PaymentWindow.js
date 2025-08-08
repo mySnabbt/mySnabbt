@@ -3,183 +3,251 @@ import './PaymentWindow.css';
 import Keypad from './Keypad';
 
 function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails, logTransaction }) {
-    const [Cash, setCash] = useState(true);
-    const [Card, setCard] = useState(false);
-    const [amountGiven, setAmountGiven] = useState(0);
-    const [isSplitPayment, setIsSplitPayment] = useState(false);
-    const [isFullPayment, setIsFullPayment] = useState(false);
-    const [status, setStatus] = useState(false);
-    const [tick, setTick] = useState(false);
-    const [paymentStatus, setPaymentStatus] = useState('Unpaid');
-    const [transactionStatus, setTransactionStatus] = useState(null); // New state for transaction status
-    const [declineStatus, setDeclineStatus] = useState(null); //To simulate a declined transaction
-    const [retry, setRetry] = useState(0);
-    
-    // const orderTotal= total;
-    // const change = amountGiven - orderTotal ;
-    // const paidAmount = amountGiven;
-    // const leftAmount = orderTotal - amountGiven;
-    // const numericAmountGiven = parseFloat(amountGiven) || 0;
-    const numericAmountGiven = parseFloat(amountGiven) || 0; // If parsing fails (e.g., amountGiven is '.'), default to 0
+  // UI state
+  const [mode, setMode] = useState('cash'); // 'cash' | 'card'
+  const [amountGiven, setAmountGiven] = useState("0"); // string for decimals
+  const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [isFullPayment, setIsFullPayment] = useState(false);
+  const [tick, setTick] = useState(false);
+  const [status, setStatus] = useState(false);
 
-    const orderTotal = total;
-    const change = numericAmountGiven - orderTotal;
-    const paidAmount = numericAmountGiven; // paidAmount is now guaranteed to be a number
-    const leftAmount = orderTotal - numericAmountGiven;
+  // Card status state
+  const [paymentStatus, setPaymentStatus] = useState('Unpaid');
+  const [retry, setRetry] = useState(0);
 
-    const openCardWindow = () => {
-        setCard(true);
-        setCash(false);
+  const numericAmountGiven = parseFloat(amountGiven || "0") || 0;
+  const orderTotal = Number(total) || 0;
+  const change = numericAmountGiven - orderTotal;
+  const paidAmount = numericAmountGiven;
+  const leftAmount = orderTotal - numericAmountGiven;
+
+  const handleConfirmCash = () => {
+    setTick(true);
+    setStatus(true);
+    updatePaymentDetails({ paidAmount, leftAmount: Math.max(leftAmount, 0) });
+    logTransaction(order, orderTotal);
+  };
+
+  const handleClose = () => {
+    // Close with current tick/status so your parent can clear on success
+    closePaymentWindow(tick, status);
+    setTick(false);
+  };
+
+  // Card actions
+  const handleFullPaymentClick = () => {
+    setIsSplitPayment(false);
+    setIsFullPayment(true);
+  };
+
+  const handleSplitPaymentClick = () => {
+    setIsFullPayment(false);
+    setIsSplitPayment(true);
+  };
+
+  const handleProcessCard = () => {
+    // Simulate success
+    setPaymentStatus('Paid');
+    updatePaymentDetails({ paidAmount: orderTotal, leftAmount: 0 });
+    logTransaction(order, orderTotal);
+    setStatus(true);
+  };
+
+  const handleCancelCard = () => {
+    setPaymentStatus('Transaction Cancelled');
+    setIsFullPayment(false);
+    if (retry === 1) handleClose();
+  };
+
+  const handleRetry = () => {
+    if (paymentStatus === 'Transaction Declined') {
+      setRetry(1);
     }
+  };
 
-    const openCashWindow = () => {
-        setCard(false);
-        setCash(true);
-    }
+  const handleSimulateDecline = () => {
+    setPaymentStatus('Transaction Declined');
+  };
 
-    const handleFullPaymentClick = () => {
-        setIsSplitPayment(false);
-        setIsFullPayment(true);
-    };
+  return (
+    <div className="fixed inset-0 z-50">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={handleClose}
+      />
 
-    const handlePaymentStatus = () => {
-        setPaymentStatus(true);
-        logTransaction(order, total)
-        setAmountGiven(orderTotal);
-        updatePaymentDetails({ paidAmount, leftAmount: Math.max(leftAmount, 0) });
-        setTransactionStatus(null);
-        setIsFullPayment(false);
-        setStatus(true);
-    }
+      {/* Two-panel container, aligned right (over Categories) + center (over Items) */}
+      <div className="absolute top-[56px] right-3 bottom-3 flex gap-3">
+        {/* LEFT: Payment Operations (overlaps Items section) */}
+        <section className="w-[min(900px,60vw)] rounded-lg border bg-white p-4 shadow flex flex-col">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Payment</h2>
+            <button className="rounded-md border px-2 py-1 text-sm" onClick={handleClose} aria-label="Close payment window">
+              Close
+            </button>
+          </div>
 
-    const handleCancel = () => {
-        // setPaymentStatus(false);
-        setPaymentStatus('Transaction Cancelled');
-        setIsFullPayment(false);
-        if (retry===1) {
-            closePaymentWindow();
-        }
-    }
+          <div className="mt-1 text-sm text-gray-600">
+            Order Total: <strong>${orderTotal.toFixed(2)}</strong>
+          </div>
 
-    const handleRetry = () => {
-        if (paymentStatus === 'Transaction Declined') {
-            setRetry(1);
-        }
-    }
+          {/* Mode-specific operations */}
+          {mode === 'cash' ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium">
+                  Cash Amount Given
+                  <input
+                    type="text"
+                    value={amountGiven}
+                    onChange={(e) => setAmountGiven(e.target.value)}
+                    className="mt-1 w-full rounded-md border px-2 py-2"
+                  />
+                </label>
+                <Keypad
+                  quantity={amountGiven}
+                  setQuantity={setAmountGiven}
+                  decimal={true}
+                />
+                <button
+                  onClick={handleConfirmCash}
+                  className="w-full rounded-md bg-gray-900 text-white px-3 py-2"
+                >
+                  Confirm Cash
+                </button>
+              </div>
 
-    const handleSimulateDecline = () => {
-        setPaymentStatus('Transaction Declined');
-        setTransactionStatus(null);
-    }
+              <div className="rounded-md border p-3 bg-sky-50">
+                <h3 className="font-semibold mb-2">Summary</h3>
+                <div className="flex items-center justify-between py-1">
+                  <span>Paid Amount</span>
+                  <strong>${paidAmount.toFixed(2)}</strong>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <span>Change</span>
+                  <strong>${change >= 0 ? change.toFixed(2) : '0.00'}</strong>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <span>Amount Left</span>
+                  <strong>${Math.max(leftAmount, 0).toFixed(2)}</strong>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-4">
+              <div className="rounded-md border p-3 bg-sky-50">
+                <div className="text-sm">Order Total</div>
+                <div className="text-2xl font-semibold">${orderTotal.toFixed(2)}</div>
+              </div>
 
-    const handleSplitPaymentClick = () => {
-        setIsSplitPayment(true);
-        setIsFullPayment(false);
-    };
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={handleFullPaymentClick} className="rounded-md border bg-white px-3 py-2">
+                  Pay in full
+                </button>
+                <button onClick={handleSplitPaymentClick} className="rounded-md border bg-white px-3 py-2">
+                  Split payment
+                </button>
+              </div>
 
-    const handleTick = () => {
-        setTick(true);
-        setStatus(true);
-        updatePaymentDetails({ paidAmount, leftAmount: Math.max(leftAmount, 0) });
-        logTransaction(order, total);
-    }
-
-    const handleClick = () => {
-        // if (tick===true) {
-        //     closePaymentWindow();
-        // }
-        closePaymentWindow(tick, status);
-        setTick(false);
-        //setStatus(true);
-        // if (setTick == true) {
-        //     updatePaymentDetails({ paidAmount: 0, leftAmount: 0 });
-        // }
-    }
-
-    return (
-        <div className="payment-window">
-            {Cash ? (
-                <section className="payment-section">
-                    <div className="frame-1">
-                        <h3>Cash Amount Given:</h3>
-                        <input
-                                type="number"
-                                value = {amountGiven}
-                                onChange={(e) => setAmountGiven(Number(e.target.value))}
-                        />
-                        <Keypad 
-                            quantity={amountGiven}
-                            setQuantity={setAmountGiven}
-                            decimal={true}
-                        />
-                        <button onClick = {handleTick} className = "summary-status"> ✓ </button>
-                        <div className="Change">
-                            <h3>Change: ${change >= 0 ? change.toFixed(2) : '0.00'}</h3>
-                        </div>
+              {isFullPayment && (
+                <div className="rounded-md border p-3">
+                  <div className="text-sm mb-2">Payment Amount</div>
+                  <input
+                    type="text"
+                    readOnly
+                    value={orderTotal.toFixed(2)}
+                    className="w-full rounded-md border px-2 py-2"
+                  />
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button onClick={handleProcessCard} className="rounded-md bg-gray-900 text-white px-3 py-2">
+                      Process
+                    </button>
+                    <button onClick={handleCancelCard} className="rounded-md border px-3 py-2">
+                      Cancel
+                    </button>
+                    <button onClick={handleRetry} className="rounded-md border px-3 py-2">
+                      Retry
+                    </button>
+                    <button onClick={handleSimulateDecline} className="rounded-md border px-3 py-2">
+                      Simulate Decline
+                    </button>
+                    <div className="ml-auto text-sm">
+                      Status: <strong>{paymentStatus}</strong>
                     </div>
-                    <div className="frame-2">
-                        <button onClick={handleClick} className='close-button'> X </button>
-                        <h2>Payment Options</h2>
-                        <button onClick={openCashWindow} className='option'> Cash </button>
-                        <button onClick={openCardWindow} className='option'> Credit/Debit Card </button>
-                        <button>Voucher Entry</button>
-                    </div>
-                </section> 
-            ) : (
-                <section className="payment-section">
-                    <div className="frame-11">
-                        <h3>Order Total: ${orderTotal}</h3>
-                        <div class name = "card-options">
-                            <button onClick={handleFullPaymentClick} className = "full-button"> Pay in full</button>
-                            <button onClick={handleSplitPaymentClick} className="keypad-button"> Split Payment </button>
-                        </div>
-                        {isFullPayment && (
-                            <div className="full-pop-up">
-                                <button onClick={handlePaymentStatus} className='b'> Payment Status : </button>
-                                <h3> {paymentStatus}</h3>
-                                <div className='card-full-box'>
-                                    <h3> Payment Amount:</h3>
-                                    <input
-                                        // type = "number"
-                                        type = "text"
-                                        value = {leftAmount}
-                                        onChange={(e) => setAmountGiven(Number(e.target.value))} 
-                                    />
-                                </div>
-                                <div className='card-full-box'>
-                                    <button onClick ={handleCancel}> Cancel </button>
-                                    <button onClick ={handleRetry}> Retry </button>
-                                    <button> Print Receipt </button>
-                                    <button onClick ={handleSimulateDecline}> decline </button>
-                                </div>
-                            </div>
-                        )}
-                        {isSplitPayment && (
-                            <><h3> Amount to be paid: ${paidAmount}</h3><Keypad
-                                    quantity={amountGiven}
-                                    setQuantity={setAmountGiven} 
+                  </div>
+                </div>
+              )}
 
-                                    /></>
-                        )}
+              {isSplitPayment && (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <div className="text-sm mb-1">Enter Partial Amount</div>
+                    <Keypad
+                      quantity={amountGiven}
+                      setQuantity={setAmountGiven}
+                      decimal={true}
+                    />
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="flex items-center justify-between py-1">
+                      <span>Paid So Far</span>
+                      <strong>${paidAmount.toFixed(2)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between py-1">
+                      <span>Remaining</span>
+                      <strong>${Math.max(leftAmount, 0).toFixed(2)}</strong>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button onClick={handleProcessCard} className="rounded-md bg-gray-900 text-white px-3 py-2">
+                        Process Part
+                      </button>
+                      <button onClick={handleCancelCard} className="rounded-md border px-3 py-2">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
 
-                        <div className="Change">
-                            <h3>Paid Amount: ${paidAmount}</h3>
-                        </div>
-                        
-                    </div>
-                    <div className="frame-2">
-                        <button onClick={() => closePaymentWindow(tick, status)} className='close-button'> X </button>
-                        <h2>Payment Options</h2>
-                        <button onClick={openCashWindow} className='method'> Cash </button>
-                        <button onClick={openCardWindow} className='method'> Credit/Debit Card </button>
-                        <button>Voucher Entry</button>
-                    </div>
-                </section>
-                
-            )}
-            
-        </div>
-    );
+        {/* RIGHT: Payment Options (overlaps Categories section) */}
+        <aside className="w-72 rounded-lg border bg-white p-3 shadow flex flex-col">
+          <h3 className="font-semibold mb-2">Payment Options</h3>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              className={`rounded-md border px-3 py-2 ${mode === 'cash' ? 'bg-gray-100' : ''}`}
+              onClick={() => setMode('cash')}
+            >
+              Cash
+            </button>
+            <button
+              className={`rounded-md border px-3 py-2 ${mode === 'card' ? 'bg-gray-100' : ''}`}
+              onClick={() => setMode('card')}
+            >
+              Card
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-2">
+            <button className="rounded-md border bg-white px-3 py-2">Voucher Entry</button>
+            <button className="rounded-md border bg-white px-3 py-2">Print Receipt</button>
+            <button className="rounded-md border bg-white px-3 py-2">Email Receipt</button>
+          </div>
+
+          <div className="mt-auto pt-3 border-t">
+            <div className="text-sm text-gray-600">Close this window when done.</div>
+            <button onClick={handleClose} className="mt-2 w-full rounded-md bg-gray-900 text-white px-3 py-2">
+              Close Payment
+            </button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
 }
 
 export default PaymentWindow;

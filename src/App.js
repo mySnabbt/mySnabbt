@@ -7,6 +7,8 @@ import Keypad from './Keypad';
 import ItemsSection from './ItemsSection';
 import OrderSummary from './OrderSummary';
 import PaymentWindow from './PaymentWindow';
+
+
 // CustomData is no longer needed since customisations are in Data.js
 // import {customisations} from './CustomData';
 import ManagementWindow from './ManagementWindow';
@@ -128,10 +130,22 @@ function App() {
         const selectedQuantity = quantity === 0 ? 1 : quantity;
         const itemTotal = item.price * selectedQuantity;
         const uniqueId = `${item.id}-${Date.now()}-${Math.random()}`;
-        setOrder([...order, { ...item, quantity: selectedQuantity, itemTotal, uniqueId }]);
+
+        const newLine = {
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: selectedQuantity,
+            itemTotal,
+            uniqueId,
+            appliedCustomisations: [], // start empty; do NOT copy product.customisations
+        };
+
+        setOrder([...order, newLine]);
         setTotal(total + itemTotal);
         setQuantity(1);
-    }
+    };
+
 
     const removeItem = (item) => {
         if (selectedItem) {
@@ -152,20 +166,22 @@ function App() {
         }
 
         setOrder(prevOrder =>
-            prevOrder.map(item => {
-                if (item.uniqueId === selectedItem.uniqueId) {
-                    const updatedCustoms = [...(item.customisations || []), customisation];
-                    return {
-                        ...item,
-                        customisations: updatedCustoms,
-                        itemTotal: item.itemTotal + customisation.price,
-                    };
-                }
-                return item;
+            prevOrder.map(line => {
+            if (line.uniqueId === selectedItem.uniqueId) {
+                const updatedApplied = [...(line.appliedCustomisations || []), customisation];
+                return {
+                ...line,
+                appliedCustomisations: updatedApplied,
+                itemTotal: line.itemTotal + customisation.price,
+                };
+            }
+            return line;
             })
         );
-        setTotal(prevTotal => prevTotal + customisation.price);
+
+        setTotal(prev => prev + customisation.price);
     };
+
 
     const submitOrder = async (customerId) => {
         const groupedItems = order.reduce((acc, item) => {
@@ -239,107 +255,178 @@ function App() {
     }
 
     return (
-        <div className="App">
-            <header className="app-header">
-                <h1>Snabbt POS</h1>
-                <button onClick={reLogin}> 
-                Welcome, UserName </button>
-            </header>
-            <main className="main-layout">
-                <OrderSummary
+        <div className="min-h-screen flex flex-col">
+            <header className="sticky top-0 z-50 flex items-center justify-between bg-gray-900 text-white px-4 py-2">
+                <h1 className="text-lg font-semibold">Snabbt POS</h1>
+                    <button onClick={reLogin} className="rounded-md bg-white text-gray-900 px-3 py-1">
+                        Welcome, {currentUser || "User"}
+                    </button>
+                </header>
+
+                {/* flex-1 makes this area fill the remaining viewport height */}
+                    <main className="flex-1 p-3 grid gap-3 grid-cols-1 md:grid-cols-12">
+                {/* Order Summary column — let child fill full height */}
+
+                <section className="md:col-span-3">
+                    <OrderSummary
                     order={order}
                     total={total}
-                    clearTerminal={clearTerminal}
+                    clearOrder={clearTerminal}
                     selectedItem={selectedItem}
                     setSelectedItem={setSelectedItem}
-                    setStatus={status} 
-                    status={status}
                     paidAmount={paymentDetails.paidAmount}
                     leftAmount={paymentDetails.leftAmount}
-                ></OrderSummary>
-                <ItemsSection
-                    // --- PASS THE SHARED STATE AND CATEGORY DOWN AS PROPS ---
-                    items={menuItems}
-                    selectedCategory={selectedCategory}
-                    // --------------------------------------------------------
-                    addItemToOrder={addItemToOrder}
-                    selectedItem={selectedItem}
-                    setSelectedItem={setSelectedItem}
-                    addCustomisationToOrder={addCustomisationToOrder}
-                ></ItemsSection>
-                <section className="categories-section">
-                    <h2>Categories</h2>
-                    <ul>
-                        <div className="category-buttons">
-                            <button onClick={() => setSelectedCategory('Food')}>Food</button>
-                            <button onClick={() => setSelectedCategory('Drinks')}>Drinks</button>
+                    />
+                </section>
+
+                <section className="md:col-span-6 h-full">
+                    <ItemsSection
+                        items={menuItems}
+                        selectedCategory={selectedCategory}
+                        addItemToOrder={addItemToOrder}
+                        selectedItem={selectedItem}
+                        setSelectedItem={setSelectedItem}
+                        addCustomisationToOrder={addCustomisationToOrder}
+                    />
+                </section>
+
+
+                <section className="md:col-span-3 h-full">
+                    <div className="h-full rounded-lg border p-3 flex flex-col">
+                        {/* Categories at the top */}
+                        <h2 className="text-base font-semibold mb-2">Categories</h2>
+                        <div className="grid grid-cols-2 gap-2">
+                        <button
+                            onClick={() => setSelectedCategory('Food')}
+                            className="rounded-md border px-3 py-2"
+                        >
+                            Food
+                        </button>
+                        <button
+                            onClick={() => setSelectedCategory('Drinks')}
+                            className="rounded-md border px-3 py-2"
+                        >
+                            Drinks
+                        </button>
                         </div>
-                    </ul>
-                    <div className="quantity-input">
-                        <label>Quantity: </label>
+
+                        {/* Spacer to push everything else down */}
+                        <div className="mt-auto" />
+
+                        {/* Quantity + Submit Order + Total above keypad */}
+                        <div className="flex items-center gap-2 mb-3">
+                        <label className="text-sm">Quantity:</label>
                         <input
                             type="number"
                             value={quantity}
                             onChange={(e) => setQuantity(Number(e.target.value))}
+                            className="w-24 rounded-md border px-2 py-1"
                         />
-                    </div>
-                    <div className="order-summary-divider">
-                        <button onClick={submitOrder}>Submit Order</button>
-                        <h4>Order Total: ${total.toFixed(2)}</h4>
-                    </div>
-                    <div className="box">
-                        <Keypad 
-                            quantity={quantity} 
-                            setQuantity={setQuantity} 
-                            openPaymentWindow={openPaymentWindow}
-                        />
-                        <div className="box1">
-                            <button onClick={clearTerminal} className='button'> Clear Terminal </button>
-                            <button onClick={removeItem} className='button'> Remove Item </button>
-                            <button onClick={openPaymentWindow} className='button'> Payment </button>
-                            <button onClick={openManagementWindow} > Management </button>
                         </div>
-                        {showManagementLogin && !isManagementLoggedIn && (
-                                <Login
-                                    user={managerUser}
-                                    setUser={setManagerUser}
-                                    pass={managerPass}
-                                    setPass={setManagerPass}
-                                >
-                                    <button onClick={handleManagementLogin} className="login-button">
-                                        Login
-                                    </button>
-                                    <button onClick={() => setShowManagementLogin(false)} className="login-button">
-                                        Cancel
-                                    </button>
-                                </Login>
-                        )}
-                        {isManagementLoggedIn && displayManagementPage && (
-                            <ManagementWindow 
-                                closeManagementWindow={() => {
-                                    closeManagementWindow();
-                                    setIsManagementLoggedIn(false);
-                                }}
-                                transactions={transactions}
-                                // --- PASS THE STATE AND SETTER DOWN AS PROPS ---
-                                menuItems={menuItems}
-                                setMenuItems={setMenuItems}
-                                // ------------------------------------------------
+
+                        <div className="flex items-center justify-between mb-4">
+                        <button
+                            onClick={submitOrder}
+                            className="rounded-md bg-gray-900 text-white px-3 py-2"
+                        >
+                            Submit Order
+                        </button>
+                        <h4 className="font-semibold">Total: ${total.toFixed(2)}</h4>
+                        </div>
+
+                        {/* Keypad + Action buttons */}
+                        <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <Keypad
+                            quantity={quantity}
+                            setQuantity={setQuantity}
                             />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <button
+                            onClick={clearTerminal}
+                            className="rounded-md border px-3 py-2"
+                            >
+                            Clear Terminal
+                            </button>
+                            <button
+                            onClick={removeItem}
+                            className="rounded-md border px-3 py-2"
+                            >
+                            Remove Item
+                            </button>
+                            <button
+                            onClick={openPaymentWindow}
+                            className="rounded-md border px-3 py-2"
+                            >
+                            Payment
+                            </button>
+                            <button
+                            onClick={openManagementWindow}
+                            className="rounded-md border px-3 py-2"
+                            >
+                            Management
+                            </button>
+                        </div>
+                        </div>
+
+                        {/* Management login / window */}
+                        {showManagementLogin && !isManagementLoggedIn && (
+                        <div className="mt-3">
+                            <Login
+                            user={managerUser}
+                            setUser={setManagerUser}
+                            pass={managerPass}
+                            setPass={setManagerPass}
+                            title="Management Login"
+                            >
+                            <div className="mt-2 flex gap-2">
+                                <button
+                                onClick={handleManagementLogin}
+                                className="rounded-md bg-gray-900 text-white px-3 py-1"
+                                >
+                                Login
+                                </button>
+                                <button
+                                onClick={() => setShowManagementLogin(false)}
+                                className="rounded-md border px-3 py-1"
+                                >
+                                Cancel
+                                </button>
+                            </div>
+                            </Login>
+                        </div>
+                        )}
+
+                        {isManagementLoggedIn && displayManagementPage && (
+                        <ManagementWindow
+                            closeManagementWindow={() => {
+                            closeManagementWindow();
+                            setIsManagementLoggedIn(false);
+                            }}
+                            transactions={transactions}
+                            menuItems={menuItems}
+                            setMenuItems={setMenuItems}
+                        />
                         )}
                     </div>
-                </section>
-            </main>
-            {isPaymentWindowOpen && !isManagementLoggedIn && (
-                <PaymentWindow 
-                    closePaymentWindow={closePaymentWindow} 
-                    total={total} 
-                    order={order} 
-                    setTick={setTick}
+                    </section>
+
+
+                </main>
+
+                {isPaymentWindowOpen && !isManagementLoggedIn && (
+                <PaymentWindow
+                    closePaymentWindow={closePaymentWindow}
+                    total={total}
+                    order={order}
+                    setTick={setStatus}
                     updatePaymentDetails={updatePaymentDetails}
-                    logTransaction={logTransaction} 
+                    logTransaction={logTransaction}
                 />
-            )}
+                )}
+
         </div>
     );
 }
