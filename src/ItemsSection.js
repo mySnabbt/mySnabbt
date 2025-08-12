@@ -3,13 +3,21 @@ import './ItemsSection.css';
 import ItemList from './ItemList';
 
 function ItemsSection({
-  items,                // product catalog (with product.customisations)
+  items,
+  selectedCategory, // <— use this
   addItemToOrder,
-  selectedItem,         // this should be the selected ORDER line (from OrderSummary)
+  selectedItem,
   setSelectedItem,
   addCustomisationToOrder,
 }) {
-  // Find the product for the selected order line to read available customisations
+  // Filter by category name when a category is selected
+  const filteredItems = React.useMemo(() => {
+    if (!selectedCategory) return items;
+    return items.filter(i =>
+      (i.categoryName || '').toLowerCase() === selectedCategory.toLowerCase()
+    );
+  }, [items, selectedCategory]);
+
   const selectedProduct = selectedItem
     ? items.find(p => p.id === selectedItem.id)
     : null;
@@ -22,9 +30,8 @@ function ItemsSection({
 
       <div className="flex-1 overflow-auto pr-1">
         <ItemList
-          items={items}
+          items={filteredItems}   
           addItemToOrder={addItemToOrder}
-          // Do NOT setSelectedItem here; selection happens in OrderSummary
         />
       </div>
 
@@ -47,11 +54,15 @@ function ItemsSection({
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-700 mt-1">No customisations available for this product.</p>
+              <p className="text-sm text-gray-700 mt-1">
+                No customisations available for this product.
+              </p>
             )}
           </>
         ) : (
-          <p className="text-sm text-gray-700">Select a line in the Order Summary to add customisations.</p>
+          <p className="text-sm text-gray-700">
+            Select a line in the Order Summary to add customisations.
+          </p>
         )}
       </div>
     </section>

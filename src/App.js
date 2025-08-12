@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './App.css';
 import Login from './Login';
 import users from './Users';
-import { items } from './Data';
+import { useEffect } from 'react';
 import Keypad from './Keypad';
 import ItemsSection from './ItemsSection';
 import OrderSummary from './OrderSummary';
@@ -39,21 +39,38 @@ function App() {
     const [managerPassActive, setManagerPassActive] = useState(false);
 
     // --- LIFTED STATE UP: App.js is now the single source of truth for menu items ---
-    const [menuItems, setMenuItems] = useState(items);
+    const [menuItems, setMenuItems] = useState([]);
     // ---------------------------------------------------------------------------------
 
+    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+
     const handleLogin = () => {
-        const authUser = users.find(u => u.pin === String(user) && u.pass === String(pass));
+        const authUser = users.find(
+            u => u.pin === String(user) && u.pass === String(pass)
+        );
+
         if (authUser) {
             setIsLoggedIn(true);
             setRole(authUser.role);
             setCurrentUser(authUser.name);
             setUser('');
             setPass('');
+            fetchProducts(); // <— fetch items now
         } else {
             alert('Please enter a username to log in.');
         }
     };
+
+    useEffect(() => {
+        if (isLoggedIn) {
+            // Fetch products only when logged in
+            fetchProducts();
+        }
+    }, [isLoggedIn]);
+
+
+    
 
     const handleManagementLogin = () => {
         const authManager = users.find(u => u.pin === String(managerUser) && u.pass === String(managerPass) && u.role === 'manager');
@@ -242,6 +259,22 @@ function App() {
             alert('Failed to fetch today’s sales');
         }
     };
+
+    const fetchProducts = async () => {
+        try {
+            const res = await fetch(`${API_URL}/api/products`);
+            const json = await res.json();
+
+            if (!res.ok) throw new Error(json.error || 'Failed to load products');
+
+            // Expecting { items: [...] } from the backend mapper above
+            setMenuItems(Array.isArray(json.items) ? json.items : []);
+        } catch (err) {
+            console.error('Failed to fetch products:', err);
+            alert('Failed to load products. Please try again.');
+        }
+    };
+
     
     if (!isLoggedIn || management === true) {
         return (
@@ -295,20 +328,35 @@ function App() {
                     <div className="h-full rounded-lg border p-3 flex flex-col">
                         {/* Categories at the top */}
                         <h2 className="text-base font-semibold mb-2">Categories</h2>
-                        <div className="grid grid-cols-2 gap-2">
-                        <button
-                            onClick={() => setSelectedCategory('Food')}
-                            className="rounded-md border px-3 py-2"
-                        >
-                            Food
-                        </button>
-                        <button
-                            onClick={() => setSelectedCategory('Drinks')}
-                            className="rounded-md border px-3 py-2"
-                        >
-                            Drinks
-                        </button>
+                            <div className="grid grid-cols-3 gap-2">
+                            <button
+                                onClick={() => setSelectedCategory('')}
+                                className={`rounded-md border px-3 py-2 ${
+                                !selectedCategory ? 'bg-gray-900 text-white' : ''
+                                }`}
+                            >
+                                All
+                            </button>
+
+                            <button
+                                onClick={() => setSelectedCategory('Food')}
+                                className={`rounded-md border px-3 py-2 ${
+                                selectedCategory === 'Food' ? 'bg-gray-900 text-white' : ''
+                                }`}
+                            >
+                                Food
+                            </button>
+
+                            <button
+                                onClick={() => setSelectedCategory('Drinks')}
+                                className={`rounded-md border px-3 py-2 ${
+                                selectedCategory === 'Drinks' ? 'bg-gray-900 text-white' : ''
+                                }`}
+                            >
+                                Drinks
+                            </button>
                         </div>
+
 
                         {/* Spacer to push everything else down */}
                         <div className="mt-auto" />
