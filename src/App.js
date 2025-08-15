@@ -29,6 +29,7 @@ function App() {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedItem, setSelectedItem] = useState(null);
     const [isPaymentWindowOpen, setPaymentWindowOpen] = useState(false);
+    const [paymentSuccess, setPaymentSuccess] = useState(null);
     const [isManagementWindowOpen, setManagementWindowOpen] = useState(false);
     const [isManagementLoggedIn, setIsManagementLoggedIn] = useState(false);
     const [managerUser, setManagerUser] = useState('');
@@ -101,13 +102,29 @@ function App() {
         setPaymentWindowOpen(true);
     };
 
-    const closePaymentWindow = (tick, status) => {
+    const closePaymentWindow = (tick, status, meta) => {
         setPaymentWindowOpen(false);
+
         if (tick || status) {
             clearTerminal();
-            updatePaymentDetails({ paidAmount: 0, leftAmount: 0 })
+            updatePaymentDetails({ paidAmount: 0, leftAmount: 0 });
+
+            // Show success toast if we have meta from the payment window
+            if (meta && (meta.orderId || meta.method)) {
+            setPaymentSuccess({
+                orderId: meta.orderId ?? null,
+                method: meta.method ?? 'CASH',
+                change: typeof meta.change === 'number' ? meta.change : 0,
+                amountTendered: typeof meta.amountTendered === 'number' ? meta.amountTendered : 0,
+                total: typeof meta.total === 'number' ? meta.total : total
+            });
+
+            // Auto-hide after 3.5s
+            setTimeout(() => setPaymentSuccess(null), 3500);
+            }
         }
     };
+
 
     const openManagementWindow = () => {
         setShowManagementLogin(true);
@@ -372,15 +389,12 @@ function App() {
                         />
                         </div>
 
-                        <div className="flex items-center justify-between mb-4">
-                        <button
-                            onClick={submitOrder}
-                            className="rounded-md bg-gray-900 text-white px-3 py-2"
-                        >
-                            Submit Order
-                        </button>
-                        <h4 className="font-semibold">Total: ${total.toFixed(2)}</h4>
+                        <div className="flex items-center justify-end mb-4">
+                            <h4 className="font-semibold">
+                                Total: ${total.toFixed(2)}
+                            </h4>
                         </div>
+
 
                         {/* Keypad + Action buttons */}
                         <div className="grid grid-cols-2 gap-3">
@@ -405,10 +419,11 @@ function App() {
                             Remove Item
                             </button>
                             <button
-                            onClick={openPaymentWindow}
-                            className="rounded-md border px-3 py-2"
-                            >
-                            Payment
+                                onClick={openPaymentWindow}
+                                disabled={order.length === 0}
+                                    className="rounded-md border px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                Payment
                             </button>
                             <button
                             onClick={openManagementWindow}
@@ -473,6 +488,24 @@ function App() {
                     updatePaymentDetails={updatePaymentDetails}
                     logTransaction={logTransaction}
                 />
+                )}
+                {paymentSuccess && (
+                <div
+                    role="alert"
+                    aria-live="polite"
+                    className="fixed top-16 right-4 z-[60] rounded-md bg-green-600 text-white px-4 py-3 shadow-lg"
+                >
+                    <div className="font-semibold">Payment successful</div>
+                    <div className="text-sm mt-0.5">
+                    {paymentSuccess.orderId
+                        ? `Order #${paymentSuccess.orderId}`
+                        : 'Order created'}
+                    • {paymentSuccess.method}
+                    {paymentSuccess.method === 'CASH'
+                        ? ` • Change $${paymentSuccess.change.toFixed(2)}`
+                        : ''}
+                    </div>
+                </div>
                 )}
 
         </div>

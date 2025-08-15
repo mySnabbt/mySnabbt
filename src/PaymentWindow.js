@@ -2,34 +2,100 @@ import React, { useState } from 'react';
 import './PaymentWindow.css';
 import Keypad from './Keypad';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails, logTransaction }) {
   // UI state
-  const [mode, setMode] = useState('cash'); // 'cash' | 'card'
-  const [amountGiven, setAmountGiven] = useState("0"); // string for decimals
+  const [mode, setMode] = useState('cash');
+  const [amountGiven, setAmountGiven] = useState('0');
   const [isSplitPayment, setIsSplitPayment] = useState(false);
   const [isFullPayment, setIsFullPayment] = useState(false);
   const [tick, setTick] = useState(false);
   const [status, setStatus] = useState(false);
 
-  // Card status state
   const [paymentStatus, setPaymentStatus] = useState('Unpaid');
+
   const [retry, setRetry] = useState(0);
 
-  const numericAmountGiven = parseFloat(amountGiven || "0") || 0;
+  const numericAmountGiven = parseFloat(amountGiven || '0') || 0;
   const orderTotal = Number(total) || 0;
   const change = numericAmountGiven - orderTotal;
   const paidAmount = numericAmountGiven;
   const leftAmount = orderTotal - numericAmountGiven;
 
-  const handleConfirmCash = () => {
-    setTick(true);
-    setStatus(true);
-    updatePaymentDetails({ paidAmount, leftAmount: Math.max(leftAmount, 0) });
-    logTransaction(order, orderTotal);
+  const groupItems = (lines) => {
+    return lines.reduce((acc, line) => {
+      const existing = acc.find((i) => i.productId === line.id);
+      if (existing) {
+        existing.quantity += line.quantity;
+      } else {
+        acc.push({
+          productId: line.id,
+          quantity: line.quantity,
+          priceEach: line.price
+        });
+      }
+      return acc;
+    }, []);
+  };
+
+  const handleConfirmCash = async () => {
+    if (numericAmountGiven < orderTotal) {
+      alert('Cash given is less than total. Please collect full amount.');
+      return;
+    }
+
+    const items = groupItems(order);
+    const body = {
+      customerId: 1, // or null if you don't track walk-ins
+      items,
+      total: orderTotal,
+      status: 'PAID', // mark paid when cash confirmed
+      payment: {
+        method: 'CASH',
+        amountTendered: numericAmountGiven,
+        change: Math.max(change, 0),
+        amount: orderTotal // amount actually applied to the order
+      }
+    };
+
+    try {
+      const res = await fetch(`${API_URL}/api/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || 'Failed to create order');
+      }
+
+      const data = await res.json(); // { orderId }
+
+      updatePaymentDetails({ paidAmount: orderTotal, leftAmount: 0 });
+      logTransaction(order, orderTotal);
+      setPaymentStatus('Paid');
+      setTick(true);
+      setStatus(true);
+
+      // Close and pass meta for the toast
+      closePaymentWindow(true, true, {
+        orderId: data?.orderId,
+        method: 'CASH',
+        change: Math.max(change, 0),
+        amountTendered: numericAmountGiven,
+        total: orderTotal
+      });
+
+    } catch (err) {
+      console.error('Cash payment failed:', err);
+      alert('Failed to finalise cash sale. Please try again.');
+    }
   };
 
   const handleClose = () => {
-    // Close with current tick/status so your parent can clear on success
+    // Only clears in parent when tick/status reflect a successful payment
     closePaymentWindow(tick, status);
     setTick(false);
   };
