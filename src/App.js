@@ -28,6 +28,59 @@ async function detectApiBase() {
   throw new Error('API not found on expected ports');
 }
 
+function wmoToEmoji(code) {
+  if (code === 0) return '☀️';
+  if (code === 1 || code === 2) return '🌤️';
+  if (code === 3) return '☁️';
+  if (code === 45 || code === 48) return '🌫️';
+  if ([51, 53, 55, 56, 57].includes(code)) return '🌦️';
+  if ([61, 63, 65, 80, 81, 82].includes(code)) return '🌧️';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return '❄️';
+  if ([95, 96, 99].includes(code)) return '⛈️';
+  return '🌡️';
+}
+
+function wmoToText(code) {
+  const map = {
+    0:  'Clear',
+    1:  'Mainly clear',
+    2:  'Partly cloudy',
+    3:  'Overcast',
+    45: 'Fog',
+    48: 'Rime fog',
+
+    51: 'Drizzle light',
+    53: 'Drizzle',
+    55: 'Drizzle heavy',
+    56: 'Freezing drizzle light',
+    57: 'Freezing drizzle heavy',
+
+    61: 'Rain light',
+    63: 'Rain',
+    65: 'Rain heavy',
+    66: 'Freezing rain light',
+    67: 'Freezing rain heavy',
+
+    71: 'Snow light',
+    73: 'Snow',
+    75: 'Snow heavy',
+    77: 'Snow grains',
+
+    80: 'Showers light',
+    81: 'Showers',
+    82: 'Showers heavy',
+
+    85: 'Snow showers light',
+    86: 'Snow showers heavy',
+
+    95: 'Thunderstorm',
+    96: 'Thunderstorm light hail',
+    99: 'Thunderstorm heavy hail'
+  };
+
+  return map[code] ?? 'Weather';
+}
+
 function App() {
     const [user, setUser] = useState('');
     const [pass, setPass] = useState('');
@@ -54,7 +107,8 @@ function App() {
     const [transactions, setTransactions] = useState([]);
     const [managerUserActive, setManagerUserActive] = useState(false);
     const [managerPassActive, setManagerPassActive] = useState(false);
-
+    const [now, setNow] = useState(new Date());
+    const [weather, setWeather] = useState({ temp: null, code: null, label: '' });
     // --- LIFTED STATE UP: App.js is now the single source of truth for menu items ---
     const [menuItems, setMenuItems] = useState([]);
     // ---------------------------------------------------------------------------------
@@ -102,8 +156,73 @@ function App() {
         }
     }, [isLoggedIn, API_URL]);
 
+    useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(id);
+        }, []);
 
-    
+        useEffect(() => {
+        // Try geolocation; fall back to Sydney CBD if blocked/denied
+        const fallback = { lat: -33.8688, lon: 151.2093, label: 'Sydney' };
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+            (pos) =>
+                fetchWeather(pos.coords.latitude, pos.coords.longitude, ''),
+            () =>
+                fetchWeather(fallback.lat, fallback.lon, fallback.label),
+            {
+                enableHighAccuracy: false,
+                timeout: 5000,
+                maximumAge: 5 * 60 * 1000
+            }
+            );
+        } else {
+            fetchWeather(fallback.lat, fallback.lon, fallback.label);
+        }
+        }, []);
+
+    async function fetchWeather(lat, lon, label = '') {
+        try {
+            // Open-Meteo current weather (CORS-friendly, no API key)
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=Australia%2FSydney`;
+            const res = await fetch(url);
+            const json = await res.json();
+            const cw = json && json.current_weather ? json.current_weather : null;
+
+            setWeather({
+            temp: cw ? Math.round(cw.temperature) : null,
+            code: cw ? cw.weathercode : null,
+            label
+            });
+        } catch (e) {
+            console.error('Weather fetch failed:', e);
+            setWeather({ temp: null, code: null, label: '' });
+        }
+    }
+
+    const dateStr = new Intl.DateTimeFormat('en-AU', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'Australia/Sydney'
+        }).format(now);
+
+        const timeStr = new Intl.DateTimeFormat('en-AU', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Australia/Sydney'
+        }).format(now);
+
+        const weatherStr =
+        weather.temp === null
+            ? '—'
+            : `${weather.temp}°C ${wmoToEmoji(weather.code)}${
+                weather.label ? ' • ' + weather.label : ''
+            }`;
+            
 
     const handleManagementLogin = () => {
         const authManager = users.find(u => u.pin === String(managerUser) && u.pass === String(managerPass) && u.role === 'manager');
@@ -494,12 +613,33 @@ function App() {
 
     return (
         <div className="min-h-screen flex flex-col">
-            <header className="sticky top-0 z-50 flex items-center justify-between bg-gray-900 text-white px-4 py-2">
-                <h1 className="text-lg font-semibold">Envoy</h1>
-                    <button onClick={reLogin} className="rounded-md bg-white text-gray-900 px-3 py-1">
-                        Welcome, {currentUser || "User"}
+            <header className="sticky top-0 z-50 bg-gray-900 text-white px-4 py-2">
+                <div className="relative flex items-center justify-between">
+                    <h1 className="font-light tracking-tight leading-none text-2xl sm:text-=3xl md:text-3xl">Envoy</h1>
+
+                    <div className="absolute left-1/2 -translate-x-1/2">
+                    <div
+                        className="hidden sm:flex items-center gap-2 text-sm opacity-90"
+                        title={weather.code != null ? wmoToText(weather.code) : ''}
+                    >
+                        <span>{dateStr}</span>
+                        <span aria-hidden>•</span>
+                        <span>{timeStr}</span>
+                        <span aria-hidden>•</span>
+                        <span>{weatherStr}</span>
+                    </div>
+                    </div>
+
+                    <button
+                    onClick={reLogin}
+                    className="rounded-md bg-white text-gray-900 px-3 py-1"
+                    >
+                    Welcome, {currentUser || 'User'}
                     </button>
-                </header>
+                </div>
+            </header>
+
+
 
                 {/* flex-1 makes this area fill the remaining viewport height */}
                     <main className="flex-1 p-3 grid gap-3 grid-cols-1 md:grid-cols-12">
