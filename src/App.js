@@ -12,6 +12,21 @@ import PaymentWindow from './PaymentWindow';
 // CustomData is no longer needed since customisations are in Data.js
 // import {customisations} from './CustomData';
 import ManagementWindow from './ManagementWindow';
+async function detectApiBase() {
+  const guesses = [5000, 5001, 5002, 5050];
+  for (const p of guesses) {
+    try {
+      const r = await fetch(`http://localhost:${p}/port`, { mode: 'cors' });
+      if (r.ok) {
+        const { port } = await r.json();
+        return `http://localhost:${port}`;
+      }
+    } catch (_) {
+      // ignore errors, try next port
+    }
+  }
+  throw new Error('API not found on expected ports');
+}
 
 function App() {
     const [user, setUser] = useState('');
@@ -27,7 +42,8 @@ function App() {
     const [total, setTotal] = useState(0);
     const [quantity, setQuantity] = useState(1);
     const [selectedCategory, setSelectedCategory] = useState('');
-    const [selectedItem, setSelectedItem] = useState(null);
+    // const [selectedItem, setSelectedItem] = useState(null);
+    const [selectedTarget, setSelectedTarget] = useState(null);
     const [isPaymentWindowOpen, setPaymentWindowOpen] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(null);
     const [isManagementWindowOpen, setManagementWindowOpen] = useState(false);
@@ -43,7 +59,17 @@ function App() {
     const [menuItems, setMenuItems] = useState([]);
     // ---------------------------------------------------------------------------------
 
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    //const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    const [API_URL, setApiUrl] = useState(null);
+
+    useEffect(() => {
+    detectApiBase()
+        .then(setApiUrl)
+        .catch(err => {
+        console.error('Could not detect API base URL', err);
+        alert('Backend server not found.');
+        });
+    }, []);
 
 
     const handleLogin = () => {
@@ -57,18 +83,24 @@ function App() {
             setCurrentUser(authUser.name);
             setUser('');
             setPass('');
-            fetchProducts(); // <— fetch items now
+            // fetchProducts(); // <— fetch items now
+            if (API_URL) fetchProducts();
         } else {
             alert('Please enter a username to log in.');
         }
     };
 
+    // useEffect(() => {
+    //     if (isLoggedIn) {
+    //         // Fetch products only when logged in
+    //         fetchProducts();
+    //     }
+    // }, [isLoggedIn]);
     useEffect(() => {
-        if (isLoggedIn) {
-            // Fetch products only when logged in
+        if (isLoggedIn && API_URL) {
             fetchProducts();
         }
-    }, [isLoggedIn]);
+    }, [isLoggedIn, API_URL]);
 
 
     
@@ -91,6 +123,9 @@ function App() {
         if (total === 0) {
             setIsLoggedIn(false);
             setTransactions([]);
+        }
+        else {
+            alert('Order in progress');
         }
     }
 
@@ -142,8 +177,14 @@ function App() {
     };
 
     const clearTerminal = () => {
-        setOrder([]);
-        setTotal(0);
+        if (order.length != 0) {
+            setOrder([]);
+            setTotal(0);
+            setSelectedTarget(null);
+        }
+        else {
+            alert('No items to clear');
+        }
     };
 
     const setTick = () => {
@@ -181,80 +222,198 @@ function App() {
     };
 
 
-    const removeItem = (item) => {
-        if (selectedItem) {
-            const updatedOrder = order.filter((item) => item.uniqueId !== selectedItem.uniqueId);
-            const updatedTotal = updatedOrder.reduce((sum, item) => sum + item.itemTotal, 0);
-            setOrder(updatedOrder);
-            setTotal(updatedTotal);
-            setSelectedItem(null);
-        } else {
-            alert('No item selected');
-        }
-    };
-
-    const addCustomisationToOrder = (customisation) => {
-        if (!selectedItem) {
-            alert('Please select an item in the order to customise.');
+    const removeItem = () => { //No longer passing the item 
+        // if (selectedItem) {
+        //     const updatedOrder = order.filter((item) => item.uniqueId !== selectedItem.uniqueId);
+        //     const updatedTotal = updatedOrder.reduce((sum, item) => sum + item.itemTotal, 0);
+        //     setOrder(updatedOrder);
+        //     setTotal(updatedTotal);
+        //     setSelectedItem(null);
+        // } else {
+        //     alert('No item selected');
+        // }
+        if (!selectedTarget) {
+            alert('No selection');
             return;
         }
 
-        setOrder(prevOrder =>
-            prevOrder.map(line => {
-            if (line.uniqueId === selectedItem.uniqueId) {
-                const updatedApplied = [...(line.appliedCustomisations || []), customisation];
-                return {
+        // Remove whole line
+        if (selectedTarget.type === 'line') {
+            const { lineId } = selectedTarget;
+            const updatedOrder = order.filter(l => l.uniqueId !== lineId);
+            const updatedTotal = updatedOrder.reduce((sum, l) => sum + l.itemTotal, 0);
+            setOrder(updatedOrder);
+            setTotal(updatedTotal);
+            setSelectedTarget(null);
+            return;
+        }
+
+        // Remove just a customisation from a line
+        if (selectedTarget.type === 'custom') {
+            const { lineId, customUid } = selectedTarget;
+
+            let delta = 0;
+            const updatedOrder = order.map(l => {
+            if (l.uniqueId !== lineId) return l;
+            const remaining = (l.appliedCustomisations || []).filter(c => {
+                if (c.uid === customUid) {
+                delta = c.price;          // amount to subtract
+                return false;
+                }
+                return true;
+            });
+            return {
+                ...l,
+                appliedCustomisations: remaining,
+                itemTotal: l.itemTotal - delta,
+            };
+            });
+
+            setOrder(updatedOrder);
+            setTotal(prev => prev - delta);
+            setSelectedTarget(null);
+            return;
+        }
+    };
+
+    // const addCustomisationToOrder = (customisation) => {
+    //     if (!selectedItem) {
+    //         alert('Please select an item in the order to customise.');
+    //         return;
+    //     }
+
+    //     const { lineId } = selectedTarget;
+    //     setOrder(prev =>
+    //         prev.map(line => {
+    //         if (line.uniqueId !== lineId) return line;
+    //         const withUid = { ...customisation, uid: cryptoRandom() }; // add uid
+    //         return {
+    //             ...line,
+    //             appliedCustomisations: [...(line.appliedCustomisations || []), withUid],
+    //             itemTotal: line.itemTotal + customisation.price,
+    //         };
+    //         })
+    //     );
+
+    //     setTotal(prev => prev + customisation.price);
+    // };
+    const addCustomisationToOrder = (customisation) => {
+        // must have a selected line
+        if (!selectedTarget || selectedTarget.type !== 'line') {
+            alert('Select a line item in the order to add a customisation.');
+            return;
+        }
+
+        const { lineId } = selectedTarget;
+
+        setOrder(prev =>
+            prev.map(line => {
+            if (line.uniqueId !== lineId) return line;
+            const withUid = { ...customisation, uid: cryptoRandom() };
+            return {
                 ...line,
-                appliedCustomisations: updatedApplied,
+                appliedCustomisations: [...(line.appliedCustomisations || []), withUid],
                 itemTotal: line.itemTotal + customisation.price,
-                };
-            }
-            return line;
+            };
             })
         );
 
         setTotal(prev => prev + customisation.price);
     };
 
+    // tiny uid helper (top-level in App.js)
+    function cryptoRandom() {
+        return Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
 
+
+    // const submitOrder = async (customerId) => {
+    //     const groupedItems = order.reduce((acc, item) => {
+    //         const existing = acc.find(i => i.productId === item.id);
+    //         if (existing) {
+    //             existing.quantity += item.quantity;
+    //         } else {
+    //             acc.push({
+    //                 productId: item.id,
+    //                 quantity: item.quantity,
+    //                 priceEach: item.price,
+    //                 user: currentUser
+    //             });
+    //         }
+    //         return acc;
+    //     }, []);
+    
+    //     const orderData = {
+    //         customerId: 1,
+    //         items: groupedItems,
+    //         total: total,
+    //         status: 'PENDING'
+    //     };
+    
+    //     console.log('Submitting orderData:', JSON.stringify(orderData, null, 2));
+    
+    //     try {
+    //         const response = await fetch('http://localhost:5000/api/orders', {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify(orderData)
+    //         });
+    
+    //         if (!response.ok) {
+    //             const errorDetails = await response.text();
+    //             console.error('Server response:', errorDetails);
+    //             throw new Error('Failed to submit order');
+    //         }
+    
+    //         const data = await response.json();
+    //         alert(`Order submitted successfully! Order ID: ${data.orderId}`);
+    //         setOrder([]);
+    //         setTotal(0);
+    //     } catch (error) {
+    //         console.error('Error submitting order:', error);
+    //         alert('Failed to submit the order. Please try again.');
+    //     }
+    // };
     const submitOrder = async (customerId) => {
+        if (!API_URL) return; // wait for backend URL
+
         const groupedItems = order.reduce((acc, item) => {
             const existing = acc.find(i => i.productId === item.id);
             if (existing) {
-                existing.quantity += item.quantity;
+            existing.quantity += item.quantity;
             } else {
-                acc.push({
-                    productId: item.id,
-                    quantity: item.quantity,
-                    priceEach: item.price,
-                    user: currentUser
-                });
+            acc.push({
+                productId: item.id,
+                quantity: item.quantity,
+                priceEach: item.price,
+                user: currentUser
+            });
             }
             return acc;
         }, []);
-    
+
         const orderData = {
             customerId: 1,
             items: groupedItems,
             total: total,
             status: 'PENDING'
         };
-    
+
         console.log('Submitting orderData:', JSON.stringify(orderData, null, 2));
-    
+
         try {
-            const response = await fetch('http://localhost:5000/api/orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderData)
+            const response = await fetch(`${API_URL}/api/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
             });
-    
+
             if (!response.ok) {
-                const errorDetails = await response.text();
-                console.error('Server response:', errorDetails);
-                throw new Error('Failed to submit order');
+            const errorDetails = await response.text();
+            console.error('Server response:', errorDetails);
+            throw new Error('Failed to submit order');
             }
-    
+
             const data = await response.json();
             alert(`Order submitted successfully! Order ID: ${data.orderId}`);
             setOrder([]);
@@ -265,9 +424,22 @@ function App() {
         }
     };
 
+
+    // const fetchTodaysSales = async () => {
+    //     try {
+    //         const response = await fetch('http://localhost:5000/api/orders/today');
+    //         const data = await response.json();
+    //         const totalSales = data.reduce((sum, order) => sum + order.total, 0);
+    //         alert(`Total sales today: $${totalSales.toFixed(2)}`);
+    //     } catch (error) {
+    //         console.error('Error fetching today’s sales:', error);
+    //         alert('Failed to fetch today’s sales');
+    //     }
+    // };
     const fetchTodaysSales = async () => {
+        if (!API_URL) return; // wait for backend URL
         try {
-            const response = await fetch('http://localhost:5000/api/orders/today');
+            const response = await fetch(`${API_URL}/api/orders/today`);
             const data = await response.json();
             const totalSales = data.reduce((sum, order) => sum + order.total, 0);
             alert(`Total sales today: $${totalSales.toFixed(2)}`);
@@ -277,14 +449,27 @@ function App() {
         }
     };
 
+    // const fetchProducts = async () => {
+    //     try {
+    //         const res = await fetch(`${API_URL}/api/products`);
+    //         const json = await res.json();
+
+    //         if (!res.ok) throw new Error(json.error || 'Failed to load products');
+
+    //         // Expecting { items: [...] } from the backend mapper above
+    //         setMenuItems(Array.isArray(json.items) ? json.items : []);
+    //     } catch (err) {
+    //         console.error('Failed to fetch products:', err);
+    //         alert('Failed to load products. Please try again.');
+    //     }
+    // };
     const fetchProducts = async () => {
+        if (!API_URL) return; // don’t run until we know the base URL
         try {
             const res = await fetch(`${API_URL}/api/products`);
             const json = await res.json();
 
             if (!res.ok) throw new Error(json.error || 'Failed to load products');
-
-            // Expecting { items: [...] } from the backend mapper above
             setMenuItems(Array.isArray(json.items) ? json.items : []);
         } catch (err) {
             console.error('Failed to fetch products:', err);
@@ -292,10 +477,13 @@ function App() {
         }
     };
 
-    
+    if (!API_URL) {
+        return <div className="App">Connecting to backend…</div>;
+    }
+
     if (!isLoggedIn || management === true) {
         return (
-            <div className="App">
+            <div className="login-screen">
                 <Login user={user} setUser={setUser} pass={pass} setPass={setPass}/>
                 <button onClick={handleLogin} className="login-button">
                     Login
@@ -307,7 +495,7 @@ function App() {
     return (
         <div className="min-h-screen flex flex-col">
             <header className="sticky top-0 z-50 flex items-center justify-between bg-gray-900 text-white px-4 py-2">
-                <h1 className="text-lg font-semibold">Snabbt POS</h1>
+                <h1 className="text-lg font-semibold">Envoy</h1>
                     <button onClick={reLogin} className="rounded-md bg-white text-gray-900 px-3 py-1">
                         Welcome, {currentUser || "User"}
                     </button>
@@ -319,23 +507,28 @@ function App() {
 
                 <section className="md:col-span-3">
                     <OrderSummary
-                    order={order}
-                    total={total}
-                    clearOrder={clearTerminal}
-                    selectedItem={selectedItem}
-                    setSelectedItem={setSelectedItem}
-                    paidAmount={paymentDetails.paidAmount}
-                    leftAmount={paymentDetails.leftAmount}
+                        order={order}
+                        total={total}
+                        clearOrder={clearTerminal}
+                        // selectedItem={selectedItem}
+                        // setSelectedItem={setSelectedItem}
+                        selectedTarget={selectedTarget}
+                        setSelectedTarget={setSelectedTarget}
+                        paidAmount={paymentDetails.paidAmount}
+                        leftAmount={paymentDetails.leftAmount}
                     />
                 </section>
 
                 <section className="md:col-span-6 h-full">
                     <ItemsSection
                         items={menuItems}
+                        order={order}
                         selectedCategory={selectedCategory}
                         addItemToOrder={addItemToOrder}
-                        selectedItem={selectedItem}
-                        setSelectedItem={setSelectedItem}
+                        // selectedItem={selectedItem}
+                        // setSelectedItem={setSelectedItem}
+                        selectedTarget={selectedTarget}
+                        setSelectedTarget={setSelectedTarget}
                         addCustomisationToOrder={addCustomisationToOrder}
                     />
                 </section>

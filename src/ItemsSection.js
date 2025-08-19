@@ -4,6 +4,7 @@ import ItemList from './ItemList';
 
 function ItemsSection({
   items,
+  order, 
   selectedCategory, // <— use this
   addItemToOrder,
   selectedItem,

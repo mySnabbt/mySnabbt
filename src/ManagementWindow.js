@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './ManagementWindow.css';
+import ItemsSection from './ItemsSection';
 
 function ManagementWindow({ closeManagementWindow, transactions, menuItems, setMenuItems }) {
   const [selectedOption, setSelectedOption] = useState('');
@@ -22,6 +23,10 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
   const [newCustomisationPrice, setNewCustomisationPrice] = useState(0);
   const [isAddingContaminant, setIsAddingContaminant] = useState(false);
   const [newContaminantName, setNewContaminantName] = useState('');
+  const [editingCustomId, setEditingCustomId] = useState(null);
+  const [editCustomDraft, setEditCustomDraft] = useState({ name: '', price: 0 }); 
+  const [editingContamIdx, setEditingContamIdx] = useState(null);
+  const [editContamDraft, setEditContamDraft] = useState('');
 
   const fetchTodaysSales = async () => {
     setLoading(true);
@@ -56,6 +61,7 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
       name: newItemName,
       price: Number(newItemPrice),
       category: newItemCategory,
+      categoryName: newItemCategory,
       customisations: [],
       contaminants: []
     };
@@ -86,7 +92,61 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
     setIsAddingContaminant(false);
   };
 
-  const filteredItems = selectedCategory ? menuItems.filter(i => i.category === selectedCategory) : menuItems;
+  // Remove a customisation by id
+const removeCustomisation = (id) => {
+  const updated = {
+    ...selectedItem,
+    customisations: (selectedItem.customisations || []).filter(c => c.id !== id),
+  };
+  setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
+  setSelectedItem(updated);
+};
+
+// Save edit for a customisation
+const saveEditCustomisation = () => {
+  const updated = {
+    ...selectedItem,
+    customisations: (selectedItem.customisations || []).map(c =>
+      c.id === editingCustomId ? { ...c, ...editCustomDraft, price: Number(editCustomDraft.price) } : c
+    ),
+  };
+  setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
+  setSelectedItem(updated);
+  setEditingCustomId(null);
+  setEditCustomDraft({ name: '', price: 0 });
+};
+
+// Remove a contaminant by index
+const removeContaminant = (idx) => {
+  const updated = {
+    ...selectedItem,
+    contaminants: (selectedItem.contaminants || []).filter((_, i) => i !== idx),
+  };
+  setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
+  setSelectedItem(updated);
+};
+
+// Save edit for a contaminant
+const saveEditContaminant = () => {
+  const updated = {
+    ...selectedItem,
+    contaminants: (selectedItem.contaminants || []).map((n, i) =>
+      i === editingContamIdx ? editContamDraft : n
+    ),
+  };
+  setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
+  setSelectedItem(updated);
+  setEditingContamIdx(null);
+  setEditContamDraft('');
+};
+
+
+  const filteredItems = selectedCategory
+  ? menuItems.filter(item => item.categoryName === selectedCategory)
+  : menuItems;
+  // const filteredItems = selectedCategory
+  // ? menuItems.filter(item => item.categoryName === selectedCategory)
+  // : menuItems;
 
   return (
     <div className="fixed inset-0 z-50">
@@ -209,6 +269,7 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
                 <button onClick={() => setIsAddingItem(true)} className="rounded-md border bg-white px-3 py-2">Add Item</button>
                 <button onClick={() => setSelectedCategory('Food')} className="rounded-md border bg-white px-3 py-2">Food</button>
                 <button onClick={() => setSelectedCategory('Drinks')} className="rounded-md border bg-white px-3 py-2">Drinks</button>
+                <button onClick={() => setSelectedCategory('')} className="rounded-md border bg-white px-3 py-2">All</button>
               </div>
 
               <div className="flex-1 overflow-auto rounded-md border bg-white p-3">
@@ -293,73 +354,206 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-semibold">Customisations</h4>
-                          <button className="rounded-md border bg-white px-3 py-1 text-sm" onClick={() => setIsAddingCustomisation(true)}>Add</button>
+                          <button
+                            className="rounded-md border bg-white px-3 py-1 text-sm"
+                            onClick={() => setIsAddingCustomisation(true)}
+                          >
+                            Add
+                          </button>
                         </div>
 
                         {isAddingCustomisation && (
-                          <div className="mb-3 flex items-center gap-2">
-                            <input
-                              type="text"
-                              placeholder="Name"
-                              value={newCustomisationName}
-                              onChange={(e) => setNewCustomisationName(e.target.value)}
-                              className="flex-1 rounded-md border px-2 py-1"
-                            />
-                            <input
-                              type="number"
-                              placeholder="Price"
-                              value={newCustomisationPrice}
-                              onChange={(e) => setNewCustomisationPrice(e.target.value)}
-                              className="w-32 rounded-md border px-2 py-1"
-                            />
-                            <button className="rounded-md bg-gray-900 text-white px-3 py-1" onClick={handleAddCustomisation}>Save</button>
-                            <button className="rounded-md border px-3 py-1" onClick={() => setIsAddingCustomisation(false)}>Cancel</button>
+                          <div className="mb-4">
+                            <div className="grid gap-2 md:grid-cols-[1fr_160px]">
+                              <input
+                                type="text"
+                                placeholder="Name"
+                                value={newCustomisationName}
+                                onChange={(e) => setNewCustomisationName(e.target.value)}
+                                className="rounded-md border px-2 py-1"
+                                autoFocus
+                              />
+                              <input
+                                type="number"
+                                placeholder="0"
+                                value={newCustomisationPrice}
+                                onChange={(e) => setNewCustomisationPrice(e.target.value)}
+                                className="rounded-md border px-2 py-1"
+                              />
+                            </div>
+                            {/* Buttons BELOW the fields */}
+                            <div className="mt-2 flex gap-2">
+                              <button
+                                className="rounded-md bg-gray-900 text-white px-3 py-1"
+                                onClick={handleAddCustomisation}
+                              >
+                                Save
+                              </button>
+                              <button
+                                className="rounded-md border px-3 py-1"
+                                onClick={() => {
+                                  setIsAddingCustomisation(false);
+                                  setNewCustomisationName('');
+                                  setNewCustomisationPrice(0);
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
                         )}
 
                         <ul className="rounded-md border divide-y">
                           {(selectedItem.customisations || []).map((c) => (
-                            <li key={c.id} className="flex items-center justify-between px-3 py-2">
-                              <span>{c.name}</span>
-                              <span className="text-sm">${Number(c.price).toFixed(2)}</span>
+                            <li key={c.id} className="px-3 py-2">
+                              {editingCustomId === c.id ? (
+                                <>
+                                  <div className="grid gap-2 md:grid-cols-[1fr_160px]">
+                                    <input
+                                      type="text"
+                                      value={editCustomDraft.name}
+                                      onChange={(e) => setEditCustomDraft(d => ({ ...d, name: e.target.value }))}
+                                      className="rounded-md border px-2 py-1"
+                                      autoFocus
+                                    />
+                                    <input
+                                      type="number"
+                                      value={editCustomDraft.price}
+                                      onChange={(e) => setEditCustomDraft(d => ({ ...d, price: e.target.value }))}
+                                      className="rounded-md border px-2 py-1"
+                                    />
+                                  </div>
+                                  {/* Buttons BELOW fields */}
+                                  <div className="mt-2 flex gap-2">
+                                    <button className="rounded-md bg-gray-900 text-white px-3 py-1" onClick={saveEditCustomisation}>
+                                      Save
+                                    </button>
+                                    <button
+                                      className="rounded-md border px-3 py-1"
+                                      onClick={() => { setEditingCustomId(null); setEditCustomDraft({ name: '', price: 0 }); }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-3">
+                                    <span>{c.name}</span>
+                                    <span className="text-sm opacity-70">${Number(c.price).toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      className="rounded-md border px-2 py-1 text-sm"
+                                      onClick={() => { setEditingCustomId(c.id); setEditCustomDraft({ name: c.name, price: c.price }); }}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      className="rounded-md border px-2 py-1 text-sm"
+                                      onClick={() => removeCustomisation(c.id)}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </li>
                           ))}
                           {(!selectedItem.customisations || selectedItem.customisations.length === 0) && (
                             <li className="px-3 py-2 text-sm text-gray-600">No customisations.</li>
                           )}
                         </ul>
+
                       </div>
 
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-semibold">Contaminants</h4>
-                          <button className="rounded-md border bg-white px-3 py-1 text-sm" onClick={() => setIsAddingContaminant(true)}>Add</button>
+                          <button
+                            className="rounded-md border bg-white px-3 py-1 text-sm"
+                            onClick={() => setIsAddingContaminant(true)}
+                          >
+                            Add
+                          </button>
                         </div>
 
                         {isAddingContaminant && (
-                          <div className="mb-3 flex items-center gap-2">
+                          <div className="mb-4">
                             <input
                               type="text"
                               placeholder="Contaminant Name"
                               value={newContaminantName}
                               onChange={(e) => setNewContaminantName(e.target.value)}
-                              className="flex-1 rounded-md border px-2 py-1"
+                              className="w-full rounded-md border px-2 py-1"
+                              autoFocus
                             />
-                            <button className="rounded-md bg-gray-900 text-white px-3 py-1" onClick={handleAddContaminant}>Save</button>
-                            <button className="rounded-md border px-3 py-1" onClick={() => setIsAddingContaminant(false)}>Cancel</button>
+                            {/* Buttons BELOW the field */}
+                            <div className="mt-2 flex gap-2">
+                              <button className="rounded-md bg-gray-900 text-white px-3 py-1" onClick={handleAddContaminant}>
+                                Save
+                              </button>
+                              <button
+                                className="rounded-md border px-3 py-1"
+                                onClick={() => { setIsAddingContaminant(false); setNewContaminantName(''); }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
                         )}
 
                         <ul className="rounded-md border divide-y">
                           {(selectedItem.contaminants || []).map((name, idx) => (
-                            <li key={idx} className="flex items-center justify-between px-3 py-2">
-                              <span>{name}</span>
+                            <li key={idx} className="px-3 py-2">
+                              {editingContamIdx === idx ? (
+                                <>
+                                  <input
+                                    type="text"
+                                    value={editContamDraft}
+                                    onChange={(e) => setEditContamDraft(e.target.value)}
+                                    className="w-full rounded-md border px-2 py-1"
+                                    autoFocus
+                                  />
+                                  {/* Buttons BELOW field */}
+                                  <div className="mt-2 flex gap-2">
+                                    <button className="rounded-md bg-gray-900 text-white px-3 py-1" onClick={saveEditContaminant}>
+                                      Save
+                                    </button>
+                                    <button
+                                      className="rounded-md border px-3 py-1"
+                                      onClick={() => { setEditingContamIdx(null); setEditContamDraft(''); }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="flex items-center justify-between gap-3">
+                                  <span>{name}</span>
+                                  <div className="flex gap-2">
+                                    <button
+                                      className="rounded-md border px-2 py-1 text-sm"
+                                      onClick={() => { setEditingContamIdx(idx); setEditContamDraft(name); }}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      className="rounded-md border px-2 py-1 text-sm"
+                                      onClick={() => removeContaminant(idx)}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </li>
                           ))}
                           {(!selectedItem.contaminants || selectedItem.contaminants.length === 0) && (
                             <li className="px-3 py-2 text-sm text-gray-600">No contaminants.</li>
                           )}
                         </ul>
+
                       </div>
                     </div>
 
