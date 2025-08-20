@@ -1,85 +1,103 @@
-// import React, {useState} from 'react';
-// import './Login.css';
-// import LoginKeypad from './LoginKeypad';
+// import React from 'react';
+// import './ManagementLogin.css'; // You will create this file
 
-// function Login({ user, setUser, pass, setPass, title = "Login", children }) {
-//     const [userActive, setUserActive] = useState(false);
-//     const [passActive, setPassActive] = useState(false);
-
-//     const handleUserActive = () => {
-//         setUserActive(true);
-//         setPassActive(false);
-//     }
-    
-//     const handlePassActive = () => {
-//         setUserActive(false);
-//         setPassActive(true);
-//     }
-
-//     return (
-//         <div className="login">
-//             <h2>{title}</h2>
-//             <label>User Pin: </label>
-//             <input onClick={handleUserActive}
-//                 type="text"
-//                 value={user}
-//                 onChange={(e) => setUser(e.target.value)}
-//             />
-//             <label>Pass Key: </label>
-//             <input onClick={handlePassActive}
-//                 type="password"
-//                 value={pass}
-//                 onChange={(e) => setPass(e.target.value)}
-//             />
-//             <LoginKeypad 
-//                 user={user}
-//                 setUser={setUser}
-//                 pass={pass}
-//                 setPass={setPass}
-//                 userActive={userActive}
-//                 passActive={passActive}
-//             />
-//             {children}
-            
-
+// function ManagementLogin({
+//   user,
+//   setUser,
+//   pass,
+//   setPass,
+//   onLogin,
+//   onCancel,
+// }) {
+//   return (
+//     <div className="management-login-overlay">
+//       <div className="management-login-window">
+//         <h2 className="title">Management Login</h2>
+//         <input
+//           type="text"
+//           placeholder="PIN"
+//           value={user}
+//           onChange={(e) => setUser(e.target.value)}
+//           className="input"
+//         />
+//         <input
+//           type="password"
+//           placeholder="Password"
+//           value={pass}
+//           onChange={(e) => setPass(e.target.value)}
+//           className="input"
+//         />
+//         <div className="button-group">
+//           <button onClick={onLogin} className="login-button">
+//             Login
+//           </button>
+//           <button onClick={onCancel} className="cancel-button">
+//             Cancel
+//           </button>
 //         </div>
-//     );
+//       </div>
+//     </div>
+//   );
 // }
 
-// export default Login;
+// export default ManagementLogin;
 
-// import React, { useState } from 'react';
+// import React, { useState, useRef, useEffect } from 'react';
 // import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 // import { Input } from './components/ui/input';
 // import { Label } from './components/ui/label';
 // import { Button } from './components/ui/button';
 
 // // Your Keypad component (assuming it's a separate file)
-// function Keypad({ onPress, onOk, disabled }) {
+// function Keypad({ onPress, onBackspace }) {
 //   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 //   return (
 //     <div className="flex flex-col gap-2">
 //       <div className="grid grid-cols-3 gap-2">
 //         {keys.slice(0, 9).map(k => (
-//           <Button key={k} type="button" variant="secondary" disabled={disabled}
-//             onClick={() => onPress(k)} className="h-12 text-lg">
+//           <Button key={k} type="button" variant="secondary" onClick={() => onPress(k)} className="h-12 text-lg">
 //             {k}
 //           </Button>
 //         ))}
-//         <Button type="button" variant="secondary" disabled={disabled}
-//           onClick={() => onPress("0")} className="col-span-2 h-12 text-lg">
+//         <Button type="button" variant="secondary" onClick={onBackspace} className="h-12 text-lg">
+//           ←
+//         </Button>
+//         <Button type="button" variant="secondary" onClick={() => onPress("0")} className="h-12 text-lg">
 //           0
 //         </Button>
-//         <Button type="button" disabled={disabled} onClick={onOk} className="h-12 text-lg">
-//           ✓
+//         <Button type="button" onClick={() => {}} className="h-12 text-lg invisible">
+//           {/* Invisible button to maintain grid layout */}
 //         </Button>
 //       </div>
 //     </div>
 //   );
 // }
 
-// export default function Login({ user, setUser, pass, setPass, children }) {
+// function ManagementLogin({
+//   user,
+//   setUser,
+//   pass,
+//   setPass,
+//   onLogin,
+//   onCancel,
+// }) {
+//   const [showKeypad, setShowKeypad] = useState(false);
 //   const [activeInput, setActiveInput] = useState(null); // 'user' or 'pass'
+//   const loginRef = useRef(null);
+  
+//   // Hook to handle clicks outside of the login card
+//   useEffect(() => {
+//     function handleClickOutside(event) {
+//       if (loginRef.current && !loginRef.current.contains(event.target)) {
+//         setShowKeypad(false);
+//         setActiveInput(null);
+//       }
+//     }
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => {
+//       document.removeEventListener("mousedown", handleClickOutside);
+//     };
+//   }, [loginRef]);
 
 //   const handleKeypadPress = (key) => {
 //     if (activeInput === 'user') {
@@ -89,24 +107,19 @@
 //     }
 //   };
 
-//   const handleKeypadOk = () => {
-//     // This can be used to submit the form, or simply unfocus the keypad
-//     setActiveInput(null);
-//   };
-
-//   const handleClear = () => {
+//   const handleKeypadBackspace = () => {
 //     if (activeInput === 'user') {
-//       setUser('');
+//       setUser(prev => prev.slice(0, -1));
 //     } else if (activeInput === 'pass') {
-//       setPass('');
+//       setPass(prev => prev.slice(0, -1));
 //     }
 //   };
 
 //   return (
-//     <div className="flex items-center justify-center min-h-screen bg-gray-100">
-//       <Card className="w-96">
+//     <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center">
+//       <Card ref={loginRef} className="w-96">
 //         <CardHeader>
-//           <CardTitle className="text-center text-2xl font-bold">POS Login</CardTitle>
+//           <CardTitle className="text-center text-2xl font-bold">Management Login</CardTitle>
 //         </CardHeader>
 //         <CardContent className="space-y-6">
 //           <div className="space-y-4">
@@ -116,9 +129,12 @@
 //                 id="pin"
 //                 type="text"
 //                 value={user}
-//                 readOnly
+//                 onChange={(e) => setUser(e.target.value)}
+//                 onFocus={() => {
+//                   setShowKeypad(true);
+//                   setActiveInput('user');
+//                 }}
 //                 placeholder="Enter PIN"
-//                 onFocus={() => setActiveInput('user')}
 //                 className="w-full text-center text-lg"
 //               />
 //             </div>
@@ -128,36 +144,39 @@
 //                 id="password"
 //                 type="password"
 //                 value={pass}
-//                 readOnly
+//                 onChange={(e) => setPass(e.target.value)}
+//                 onFocus={() => {
+//                   setShowKeypad(true);
+//                   setActiveInput('pass');
+//                 }}
 //                 placeholder="Enter password"
-//                 onFocus={() => setActiveInput('pass')}
 //                 className="w-full text-center text-lg"
 //               />
 //             </div>
 //           </div>
-
-//           {activeInput && (
-//             <div className="space-y-4">
-//               <Keypad onPress={handleKeypadPress} onOk={handleKeypadOk} />
-//               <div className="flex gap-2">
-//                 <Button onClick={handleClear} variant="outline" className="flex-1">
-//                   Clear
-//                 </Button>
-//                 {children}
-//               </div>
-//             </div>
+          
+//           {showKeypad && (
+//             <Keypad
+//               onPress={handleKeypadPress}
+//               onBackspace={handleKeypadBackspace}
+//             />
 //           )}
 
-//           {/* {!activeInput && (
-//             <div className="flex flex-col gap-2">
-//               <Button onClick={() => setActiveInput('user')}>Enter Credentials</Button>
-//             </div>
-//           )} */}
+//           <div className="flex gap-2">
+//             <Button onClick={onLogin} className="flex-1 ">
+//               Login
+//             </Button>
+//             <Button onClick={onCancel} variant="secondary" className="flex-1">
+//               Cancel
+//             </Button>
+//           </div>
 //         </CardContent>
 //       </Card>
 //     </div>
 //   );
 // }
+
+// export default ManagementLogin;
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
@@ -165,8 +184,7 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Button } from './components/ui/button';
 
-// Reusable Keypad Component
-// We'll add a '←' key for backspace
+// Your Keypad component (assuming it's a separate file)
 function Keypad({ onPress, onBackspace }) {
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
   return (
@@ -191,13 +209,18 @@ function Keypad({ onPress, onBackspace }) {
   );
 }
 
-export default function Login({ user, setUser, pass, setPass, children }) {
+function ManagementLogin({
+  user,
+  setUser,
+  pass,
+  setPass,
+  onLogin,
+  onCancel,
+}) {
   const [showKeypad, setShowKeypad] = useState(false);
   const [activeInput, setActiveInput] = useState(null); // 'user' or 'pass'
   const loginRef = useRef(null);
-  const userRef = useRef(null);
-  const passRef = useRef(null);
-
+  
   // Hook to handle clicks outside of the login card
   useEffect(() => {
     function handleClickOutside(event) {
@@ -227,12 +250,12 @@ export default function Login({ user, setUser, pass, setPass, children }) {
       setPass(prev => prev.slice(0, -1));
     }
   };
-  
+
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <Card ref={loginRef} className="w-96 bg-gray-100">
+    <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center">
+      <Card ref={loginRef} className="w-96 bg-white">
         <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold">POS Login</CardTitle>
+          <CardTitle className="text-center text-2xl font-bold">Management Login</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">
@@ -275,13 +298,24 @@ export default function Login({ user, setUser, pass, setPass, children }) {
             />
           )}
 
-          {/* The login button is now permanently displayed */}
           <div className="flex gap-2">
-            {children}
-            {/* You can add other buttons here if needed */}
+            <Button
+              onClick={onLogin}
+              className="flex-1 bg-green-500 hover:bg-green-600"
+            >
+              Login
+            </Button>
+            <Button
+              onClick={onCancel}
+              className="flex-1 bg-red-500 hover:bg-red-600"
+            >
+              Cancel
+            </Button>
           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+
+export default ManagementLogin;

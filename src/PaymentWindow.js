@@ -1,21 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './PaymentWindow.css';
 import Keypad from './Keypad';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-
-function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails, logTransaction }) {
+function PaymentWindow({ apiBase, closePaymentWindow, total, order, updatePaymentDetails, logTransaction }) {
   // UI state
+  const API_URL = apiBase;
   const [mode, setMode] = useState('cash');
   const [amountGiven, setAmountGiven] = useState('0');
   const [isSplitPayment, setIsSplitPayment] = useState(false);
   const [isFullPayment, setIsFullPayment] = useState(false);
   const [tick, setTick] = useState(false);
   const [status, setStatus] = useState(false);
-
   const [paymentStatus, setPaymentStatus] = useState('Unpaid');
-
   const [retry, setRetry] = useState(0);
+
+  // New state to manage the transition
+  const [isVisible, setIsVisible] = useState(false);
+  const overlayRef = useRef(null);
+
+  // Trigger the slide-in animation when the component mounts
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
 
   const numericAmountGiven = parseFloat(amountGiven || '0') || 0;
   const orderTotal = Number(total) || 0;
@@ -80,7 +86,7 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
       setStatus(true);
 
       // Close and pass meta for the toast
-      closePaymentWindow(true, true, {
+      handleClose(true, {
         orderId: data?.orderId,
         method: 'CASH',
         change: Math.max(change, 0),
@@ -94,10 +100,13 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
     }
   };
 
-  const handleClose = () => {
-    // Only clears in parent when tick/status reflect a successful payment
-    closePaymentWindow(tick, status);
-    setTick(false);
+  const handleClose = (didSucceed = false, toastMeta = {}) => {
+    setIsVisible(false); // Trigger the fade/slide-out animation
+    // Use a timeout to wait for the animation to complete before unmounting
+    setTimeout(() => {
+      closePaymentWindow(didSucceed, status, toastMeta);
+      setTick(false);
+    }, 300); // This duration should match the transition duration
   };
 
   // Card actions
@@ -136,20 +145,29 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
   };
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div
+      ref={overlayRef}
+      className={`fixed inset-0 z-50 transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) {
+          handleClose();
+        }
+      }}
+    >
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={handleClose}
-      />
+      <div className="absolute inset-0 bg-black/40" />
 
       {/* Two-panel container, aligned right (over Categories) + center (over Items) */}
-      <div className="absolute top-[56px] right-3 bottom-3 flex gap-3">
+      <div
+        className={`absolute top-[56px] right-3 bottom-3 flex gap-3 transition-transform duration-500 ease-out transform ${
+          isVisible ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
         {/* LEFT: Payment Operations (overlaps Items section) */}
         <section className="w-[min(900px,60vw)] rounded-lg border bg-white p-4 shadow flex flex-col">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Payment</h2>
-            <button className="rounded-md border px-2 py-1 text-sm" onClick={handleClose} aria-label="Close payment window">
+            <button className="rounded-md border px-2 py-1 text-sm" onClick={() => handleClose()} aria-label="Close payment window">
               Close
             </button>
           </div>
@@ -306,7 +324,7 @@ function PaymentWindow({ closePaymentWindow, total, order, updatePaymentDetails,
 
           <div className="mt-auto pt-3 border-t">
             <div className="text-sm text-gray-600">Close this window when done.</div>
-            <button onClick={handleClose} className="mt-2 w-full rounded-md bg-gray-900 text-white px-3 py-2">
+            <button onClick={() => handleClose()} className="mt-2 w-full rounded-md bg-gray-900 text-white px-3 py-2">
               Close Payment
             </button>
           </div>

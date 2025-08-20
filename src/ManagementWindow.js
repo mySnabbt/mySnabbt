@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './ManagementWindow.css';
 import ItemsSection from './ItemsSection';
+import RefundWindow from './RefundWindow';
 
-function ManagementWindow({ closeManagementWindow, transactions, menuItems, setMenuItems }) {
+function ManagementWindow({ closeManagementWindow, transactions, menuItems, setMenuItems, apiBase, onLog }) {
+  const [activePane, setActivePane] = React.useState(null); 
+
   const [selectedOption, setSelectedOption] = useState('');
   const [todaySales, setTodaySales] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -28,12 +31,31 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
   const [editingContamIdx, setEditingContamIdx] = useState(null);
   const [editContamDraft, setEditContamDraft] = useState('');
 
+  // New state for transition
+  const [isVisible, setIsVisible] = useState(false);
+  const managementWindowRef = useRef(null);
+
+  // Trigger the slide-in animation on mount
+  useEffect(() => {
+    setIsVisible(true);
+    fetchTodaysSales();
+  }, []);
+
+  const handleClose = () => {
+    setIsVisible(false); // Start the slide-out animation
+    // Delay unmounting the component until the animation is complete
+    setTimeout(() => {
+      closeManagementWindow();
+    }, 500); // Duration should match the transition-duration
+  };
+
   const fetchTodaysSales = async () => {
     setLoading(true);
     setSalesError(null);
     try {
-      const res = await fetch('http://localhost:5000/api/orders/today');
+      const res = await fetch(`${apiBase}/api/orders/today`);
       const data = await res.json();
+      console.log('Fetched sales data:', data);
       setTodaySales(data);
       setSelectedOption('sales');
     } catch (err) {
@@ -93,78 +115,79 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
   };
 
   // Remove a customisation by id
-const removeCustomisation = (id) => {
-  const updated = {
-    ...selectedItem,
-    customisations: (selectedItem.customisations || []).filter(c => c.id !== id),
+  const removeCustomisation = (id) => {
+    const updated = {
+      ...selectedItem,
+      customisations: (selectedItem.customisations || []).filter(c => c.id !== id),
+    };
+    setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
+    setSelectedItem(updated);
   };
-  setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
-  setSelectedItem(updated);
-};
 
-// Save edit for a customisation
-const saveEditCustomisation = () => {
-  const updated = {
-    ...selectedItem,
-    customisations: (selectedItem.customisations || []).map(c =>
-      c.id === editingCustomId ? { ...c, ...editCustomDraft, price: Number(editCustomDraft.price) } : c
-    ),
+  // Save edit for a customisation
+  const saveEditCustomisation = () => {
+    const updated = {
+      ...selectedItem,
+      customisations: (selectedItem.customisations || []).map(c =>
+        c.id === editingCustomId ? { ...c, ...editCustomDraft, price: Number(editCustomDraft.price) } : c
+      ),
+    };
+    setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
+    setSelectedItem(updated);
+    setEditingCustomId(null);
+    setEditCustomDraft({ name: '', price: 0 });
   };
-  setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
-  setSelectedItem(updated);
-  setEditingCustomId(null);
-  setEditCustomDraft({ name: '', price: 0 });
-};
 
-// Remove a contaminant by index
-const removeContaminant = (idx) => {
-  const updated = {
-    ...selectedItem,
-    contaminants: (selectedItem.contaminants || []).filter((_, i) => i !== idx),
+  // Remove a contaminant by index
+  const removeContaminant = (idx) => {
+    const updated = {
+      ...selectedItem,
+      contaminants: (selectedItem.contaminants || []).filter((_, i) => i !== idx),
+    };
+    setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
+    setSelectedItem(updated);
   };
-  setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
-  setSelectedItem(updated);
-};
 
-// Save edit for a contaminant
-const saveEditContaminant = () => {
-  const updated = {
-    ...selectedItem,
-    contaminants: (selectedItem.contaminants || []).map((n, i) =>
-      i === editingContamIdx ? editContamDraft : n
-    ),
+  // Save edit for a contaminant
+  const saveEditContaminant = () => {
+    const updated = {
+      ...selectedItem,
+      contaminants: (selectedItem.contaminants || []).map((n, i) =>
+        i === editingContamIdx ? editContamDraft : n
+      ),
+    };
+    setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
+    setSelectedItem(updated);
+    setEditingContamIdx(null);
+    setEditContamDraft('');
   };
-  setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
-  setSelectedItem(updated);
-  setEditingContamIdx(null);
-  setEditContamDraft('');
-};
-
 
   const filteredItems = selectedCategory
   ? menuItems.filter(item => item.categoryName === selectedCategory)
   : menuItems;
-  // const filteredItems = selectedCategory
-  // ? menuItems.filter(item => item.categoryName === selectedCategory)
-  // : menuItems;
 
   return (
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40"
-        onClick={closeManagementWindow}
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+        onClick={handleClose}
       />
 
       {/* Panel container aligned to the right, overlapping Categories and Items */}
-      <div className="absolute top-[56px] right-3 bottom-3 flex gap-3">
+      <div 
+        ref={managementWindowRef}
+        className={`absolute top-[56px] right-3 bottom-3 flex gap-3 transition-transform duration-1000 ease-out transform ${
+          isVisible ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
         {/* Sidebar (overlaps Categories column) */}
         <aside className="w-72 rounded-lg bg-white shadow border p-3 flex flex-col">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold">Management</h3>
             <button
               className="rounded-md border px-2 py-1 text-sm"
-              onClick={closeManagementWindow}
+              onClick={handleClose}
               aria-label="Close management window"
             >
               Close
@@ -182,7 +205,10 @@ const saveEditContaminant = () => {
             </li>
             <li>
               <button
-                onClick={() => setSelectedOption('refund')}
+                onClick={() => {
+                  setSelectedOption('refund');
+                  setActivePane('refund');
+                }}
                 className={`w-full text-left rounded-md border px-3 py-2 ${selectedOption === 'refund' ? 'bg-gray-100' : ''}`}
               >
                 Initiate Refund
@@ -364,7 +390,7 @@ const saveEditContaminant = () => {
 
                         {isAddingCustomisation && (
                           <div className="mb-4">
-                            <div className="grid gap-2 md:grid-cols-[1fr_160px]">
+                            <div className="grid gap-2 md:grid-cols-[1fr_140px]">
                               <input
                                 type="text"
                                 placeholder="Name"
@@ -464,7 +490,6 @@ const saveEditContaminant = () => {
                             <li className="px-3 py-2 text-sm text-gray-600">No customisations.</li>
                           )}
                         </ul>
-
                       </div>
 
                       <div>
@@ -553,12 +578,11 @@ const saveEditContaminant = () => {
                             <li className="px-3 py-2 text-sm text-gray-600">No contaminants.</li>
                           )}
                         </ul>
-
                       </div>
                     </div>
 
                     <div className="mt-4 flex items-center justify-end gap-2">
-                      <button className="rounded-md border px-3 py-2" onClick={closeCustomisationPopup}>Close</button>
+                      {/* <button className="rounded-md border px-3 py-2" onClick={closeCustomisationPopup}>Close</button> */}
                       <button className="rounded-md bg-gray-900 text-white px-3 py-2">Save</button>
                     </div>
                   </div>
@@ -569,8 +593,18 @@ const saveEditContaminant = () => {
 
           {/* Placeholders for other sections */}
           {selectedOption === 'refund' && (
-            <div className="flex-1 grid place-items-center text-gray-700">
-              <h3>Initiate Refund</h3>
+            <div className="flex-1 rounded-lg bg-sky-200/60 border p-3">
+              {activePane === 'refund' ? (
+                <RefundWindow
+                  apiBase={apiBase}      // from props you passed in App.js
+                  onLog={onLog}          // from props you passed in App.js
+                  transactions={todaySales}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-600">
+                  Select a tool on the left
+                </div>
+              )}
             </div>
           )}
           {selectedOption === 'roster' && (

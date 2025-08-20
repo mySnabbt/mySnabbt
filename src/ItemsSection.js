@@ -19,8 +19,28 @@ function ItemsSection({
     );
   }, [items, selectedCategory]);
 
-  const selectedProduct = selectedItem
-    ? items.find(p => p.id === selectedItem.id)
+  const selectedLine = React.useMemo(() => {
+    if (!selectedItem) return null;
+
+    // Back-compat: if something still passes the whole line
+    if (!selectedItem.type && selectedItem.uniqueId) {
+      return order.find(l => l.uniqueId === selectedItem.uniqueId) || null;
+    }
+
+    // New shape: { type: 'line' | 'custom', lineId: ... }
+    if (selectedItem.type === 'line' || selectedItem.type === 'custom') {
+      return order.find(l => l.uniqueId === selectedItem.lineId) || null;
+    }
+
+    return null;
+  }, [order, selectedItem]);
+
+  // const selectedProduct = selectedItem
+  //   ? items.find(p => p.id === selectedItem.id)
+  //   : null;
+
+  const selectedProduct = selectedLine
+    ? items.find(p => p.id === selectedLine.id)
     : null;
 
   const availableCustomisations = selectedProduct?.customisations || [];
@@ -37,20 +57,24 @@ function ItemsSection({
       </div>
 
       <div className="mt-2 rounded-md bg-emerald-300/60 px-3 py-2">
-        {selectedItem ? (
+        {/* {selectedItem ? ( */}
+        {selectedLine ? (
           <>
             <p className="font-semibold text-center">
-              Selected line: {selectedItem.name}
+              {/* Selected line: {selectedItem.name} */}
+              Selected line: {selectedLine.name}
             </p>
             {availableCustomisations.length > 0 ? (
               <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {availableCustomisations.map((c) => (
                   <button
-                    key={c.id}
+                    //key={c.id}
+                    key={c.id || `${c.name}-${c.price}`}
                     onClick={() => addCustomisationToOrder(c)}
                     className="customisation-button rounded-md border px-3 py-2 text-sm bg-white/70"
                   >
-                    {c.name} (+${c.price.toFixed(2)})
+                    {/* {c.name} (+${c.price.toFixed(2)}) */}
+                    {c.name} (+${Number(c.price).toFixed(2)})
                   </button>
                 ))}
               </div>
