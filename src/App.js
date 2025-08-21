@@ -423,52 +423,50 @@ function App() {
     }
 
     const submitOrder = async (customerId) => {
-        if (!API_URL) return; // wait for backend URL
+        if (!API_URL) return;
 
-        const groupedItems = order.reduce((acc, item) => {
-            const existing = acc.find(i => i.productId === item.id);
-            if (existing) {
-            existing.quantity += item.quantity;
-            } else {
-            acc.push({
-                productId: item.id,
-                quantity: item.quantity,
-                priceEach: item.price,
-                user: currentUser
-            });
-            }
-            return acc;
-        }, []);
+        // Keep every line separate so customisations stay attached to the right line
+        const itemsPayload = order.map((line) => ({
+            productId: line.id,
+            quantity: line.quantity,
+            priceEach: line.price,
+            // Send the applied customisations on this specific line
+            appliedCustomisations: (line.appliedCustomisations || []).map((c) => ({
+            id: c.id || null, // if the customisation came from DB it will have an id
+            name: c.name,
+            price: Number(c.price || 0),
+            })),
+        }));
 
         const orderData = {
-            customerId: 1,
-            items: groupedItems,
+            customerId: customerId || 1,
+            items: itemsPayload,
             total: total,
-            status: 'PENDING'
+            status: "PENDING",
         };
-
-        console.log('Submitting orderData:', JSON.stringify(orderData, null, 2));
 
         try {
             const response = await fetch(`${API_URL}/api/orders`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orderData)
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(orderData),
             });
 
             if (!response.ok) {
             const errorDetails = await response.text();
-            console.error('Server response:', errorDetails);
-            throw new Error('Failed to submit order');
+            console.error("Server response:", errorDetails);
+            throw new Error("Failed to submit order");
             }
 
             const data = await response.json();
             alert(`Order submitted successfully! Order ID: ${data.orderId}`);
+
+            // Reset cart state after success
             setOrder([]);
             setTotal(0);
         } catch (error) {
-            console.error('Error submitting order:', error);
-            alert('Failed to submit the order. Please try again.');
+            console.error("Error submitting order:", error);
+            alert("Failed to submit the order. Please try again.");
         }
     };
 

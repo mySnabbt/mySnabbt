@@ -30,6 +30,7 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
   const [editCustomDraft, setEditCustomDraft] = useState({ name: '', price: 0 }); 
   const [editingContamIdx, setEditingContamIdx] = useState(null);
   const [editContamDraft, setEditContamDraft] = useState('');
+  const [toast, setToast] = useState(null); // { kind: 'success' | 'error', msg: string } | null
 
   // New state for transition
   const [isVisible, setIsVisible] = useState(false);
@@ -54,17 +55,20 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
     setSalesError(null);
     try {
       const res = await fetch(`${apiBase}/api/orders/today`);
+      if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      console.log('Fetched sales data:', data);
-      setTodaySales(data);
+      setTodaySales(Array.isArray(data) ? data : []);  // <= guard
       setSelectedOption('sales');
     } catch (err) {
       console.error('Error fetching today’s sales:', err);
       setSalesError('Failed to load sales data.');
+      setTodaySales([]);                               // <= never store non-array
+      setSelectedOption('sales');
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleItemSelect = (item) => {
     setSelectedItem(item);
@@ -76,34 +80,99 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
     setSelectedItem(null);
   };
 
-  const handleAddItem = () => {
-    const newId = menuItems.length > 0 ? Math.max(...menuItems.map(i => i.id)) + 1 : 1;
-    const newItem = {
-      id: newId,
-      name: newItemName,
-      price: Number(newItemPrice),
-      category: newItemCategory,
-      categoryName: newItemCategory,
-      customisations: [],
-      contaminants: []
-    };
-    setMenuItems([...menuItems, newItem]);
-    setNewItemName('');
-    setNewItemPrice(0);
-    setNewItemCategory('Food');
-    setIsAddingItem(false);
+  const handleAddItem = async () => {
+    try {
+      const res = await fetch(`${apiBase}/api/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newItemName,
+          price: Number(newItemPrice),
+          categoryName: newItemCategory, // "Food" / "Drinks"
+        }),
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+
+      const created = await res.json();
+
+      setMenuItems((prev) => [...prev, created]);
+      setNewItemName("");
+      setNewItemPrice(0);
+      setNewItemCategory("Food");
+      setIsAddingItem(false);
+    } catch (e) {
+      console.error("Add item failed", e);
+      alert("Failed to add item");
+    }
   };
 
-  const handleAddCustomisation = () => {
+
+  const handleAddCustomisation = async () => {
     if (!selectedItem || !newCustomisationName) return;
-    const newCustom = { id: Date.now(), name: newCustomisationName, price: Number(newCustomisationPrice) };
-    const updatedItem = { ...selectedItem, customisations: [...(selectedItem.customisations || []), newCustom] };
-    setMenuItems(menuItems.map(i => (i.id === selectedItem.id ? updatedItem : i)));
-    setSelectedItem(updatedItem);
-    setNewCustomisationName('');
-    setNewCustomisationPrice(0);
-    setIsAddingCustomisation(false);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/products/${selectedItem.id}/customisations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: newCustomisationName,
+            price: Number(newCustomisationPrice || 0),
+          }),
+        }
+      );
+
+      if (!res.ok) throw new Error(await res.text());
+
+      const created = await res.json(); // { id, productId, name, price }
+
+      // update menu items
+      setMenuItems((prev) =>
+        prev.map((i) =>
+          i.id === selectedItem.id
+            ? {
+                ...i,
+                customisations: [
+                  ...(i.customisations || []),
+                  {
+                    id: created.id,
+                    name: created.name,
+                    price: created.price,
+                  },
+                ],
+              }
+            : i
+        )
+      );
+
+      // update selected item
+      setSelectedItem((s) =>
+        s && s.id === selectedItem.id
+          ? {
+              ...selectedItem,
+              customisations: [
+                ...(selectedItem.customisations || []),
+                {
+                  id: created.id,
+                  name: created.name,
+                  price: created.price,
+                },
+              ],
+            }
+          : s
+      );
+
+      setNewCustomisationName("");
+      setNewCustomisationPrice(0);
+      setIsAddingCustomisation(false);
+    } catch (e) {
+      console.error("Add customisation failed", e);
+      alert("Failed to add customisation");
+    }
   };
+
 
   const handleAddContaminant = () => {
     if (!selectedItem || !newContaminantName) return;
@@ -115,28 +184,162 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
   };
 
   // Remove a customisation by id
-  const removeCustomisation = (id) => {
-    const updated = {
-      ...selectedItem,
-      customisations: (selectedItem.customisations || []).filter(c => c.id !== id),
-    };
-    setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
-    setSelectedItem(updated);
+  const removeCustomisation = async (id) => {
+    try {
+      const res = await fetch(
+        `${apiBase}/api/products/${selectedItem.id}/customisations/${id}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok && res.status !== 204) {
+        throw new Error(await res.text());
+      }
+
+      // update menu items
+      setMenuItems((prev) =>
+        prev.map((i) =>
+          i.id === selectedItem.id
+            ? {
+                ...i,
+                customisations: (i.customisations || []).filter(
+                  (c) => c.id !== id
+                ),
+              }
+            : i
+        )
+      );
+
+      // update selected item
+      setSelectedItem((i) =>
+        i && i.id === selectedItem.id
+          ? {
+              ...i,
+              customisations: (i.customisations || []).filter(
+                (c) => c.id !== id
+              ),
+            }
+          : i
+      );
+    } catch (e) {
+      console.error("Delete customisation failed", e);
+      alert("Failed to delete customisation");
+    }
   };
 
+
   // Save edit for a customisation
-  const saveEditCustomisation = () => {
-    const updated = {
-      ...selectedItem,
-      customisations: (selectedItem.customisations || []).map(c =>
-        c.id === editingCustomId ? { ...c, ...editCustomDraft, price: Number(editCustomDraft.price) } : c
-      ),
-    };
-    setMenuItems(menuItems.map(i => i.id === selectedItem.id ? updated : i));
-    setSelectedItem(updated);
-    setEditingCustomId(null);
-    setEditCustomDraft({ name: '', price: 0 });
+  const saveEditCustomisation = async () => {
+    try {
+      const res = await fetch(
+        `${apiBase}/api/products/${selectedItem.id}/customisations/${editingCustomId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: editCustomDraft.name,
+            price: Number(editCustomDraft.price),
+          }),
+        }
+      );
+
+      if (!res.ok) throw new Error(await res.text());
+
+      const updated = await res.json();
+
+      // update menu items
+      setMenuItems((prev) =>
+        prev.map((i) =>
+          i.id === selectedItem.id
+            ? {
+                ...i,
+                customisations: (i.customisations || []).map((c) =>
+                  c.id === updated.id
+                    ? { id: updated.id, name: updated.name, price: updated.price }
+                    : c
+                ),
+              }
+            : i
+        )
+      );
+
+      // update selected item
+      setSelectedItem((i) =>
+        i && i.id === selectedItem.id
+          ? {
+              ...i,
+              customisations: (i.customisations || []).map((c) =>
+                c.id === updated.id ? { ...updated } : c
+              ),
+            }
+          : i
+      );
+
+      setEditingCustomId(null);
+      setEditCustomDraft({ name: "", price: 0 });
+    } catch (e) {
+      console.error("Update customisation failed", e);
+      alert("Failed to update customisation");
+    }
   };
+
+  // replace your current handlePopupSave
+  const handlePopupSave = async () => {
+    try {
+      // If the "Add Customisation" inline form is open and has a value, commit it
+      if (isAddingCustomisation && newCustomisationName.trim()) {
+        await (async () => {
+          const res = await fetch(`${apiBase}/api/products/${selectedItem.id}/customisations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: newCustomisationName,
+              price: Number(newCustomisationPrice || 0),
+            }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+        })();
+      }
+
+      // (Optional) If you also support contaminants and the add form is open:
+      if (isAddingContaminant && newContaminantName.trim()) {
+        await (async () => {
+          const res = await fetch(`${apiBase}/api/products/${selectedItem.id}/contaminants`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newContaminantName }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+        })();
+      }
+
+      // Refresh products so ItemsSection sees the latest customisations
+      await refetchProducts();
+
+      // Reset inline editors + close popup
+      setIsAddingCustomisation(false);
+      setNewCustomisationName('');
+      setNewCustomisationPrice(0);
+
+      setIsAddingContaminant(false);
+      setNewContaminantName('');
+
+      setEditingCustomId(null);
+      setEditingContamIdx(null);
+
+      setShowCustomisationPopup(false);
+      setSelectedItem(null);
+      setSelectedOption('editMenu');
+
+      // Toast
+      setToast({ kind: 'success', msg: 'Item changes saved' });
+      setTimeout(() => setToast(null), 3000);
+    } catch (e) {
+      console.error('Save popup failed', e);
+      setToast({ kind: 'error', msg: 'Failed to save changes' });
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
 
   // Remove a contaminant by index
   const removeContaminant = (idx) => {
@@ -161,6 +364,19 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
     setEditingContamIdx(null);
     setEditContamDraft('');
   };
+
+  // inside ManagementWindow
+  const refetchProducts = async () => {
+    try {
+      const res = await fetch(`${apiBase}/api/products`);
+      if (!res.ok) throw new Error(await res.text());
+      const json = await res.json();
+      setMenuItems(Array.isArray(json.items) ? json.items : []);
+    } catch (e) {
+      console.error('refresh products failed', e);
+    }
+  };
+
 
   const filteredItems = selectedCategory
   ? menuItems.filter(item => item.categoryName === selectedCategory)
@@ -262,12 +478,12 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
                 <p>Loading...</p>
               ) : salesError ? (
                 <p className="text-red-600">{salesError}</p>
-              ) : todaySales.length === 0 ? (
+              ) : !Array.isArray(todaySales) || todaySales.length === 0 ? (
                 <p>No sales made today.</p>
               ) : (
                 <div className="space-y-3">
-                  {todaySales.map((txn) => (
-                    <div key={txn.order_id} className="rounded-md bg-white p-3 shadow border">
+                  {todaySales.map(txn => (
+                      <div key={txn.order_id} className="rounded-md bg-white p-3 shadow border">
                       <h4 className="font-semibold">Transaction #{txn.order_id}</h4>
                       <ul className="mt-2 text-sm list-disc list-inside">
                         {txn.items?.map((item, idx) => (
@@ -284,6 +500,7 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
                   ))}
                 </div>
               )}
+
               <button className="mt-4 rounded-md border bg-white px-3 py-2">Print Sales Report Made Today</button>
             </div>
           )}
@@ -411,7 +628,7 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
                             <div className="mt-2 flex gap-2">
                               <button
                                 className="rounded-md bg-gray-900 text-white px-3 py-1"
-                                onClick={handleAddCustomisation}
+                                onClick={handlePopupSave}
                               >
                                 Save
                               </button>
@@ -619,6 +836,15 @@ function ManagementWindow({ closeManagementWindow, transactions, menuItems, setM
           )}
         </main>
       </div>
+      {toast?.kind === 'success' && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="fixed top-16 right-4 z-[100] rounded-md bg-green-600 text-white px-4 py-3 shadow-lg"
+        >
+          {toast.msg}
+        </div>
+      )}
     </div>
   );
 }

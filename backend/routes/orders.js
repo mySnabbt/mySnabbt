@@ -3,74 +3,100 @@ const supabase = require('../db'); // Import database utility
 const router = express.Router();
 
 // POST route to create a new order
-router.post('/', async (req, res) => {
-    const { customerId, items, total, status } = req.body;
+router.post("/", async (req, res) => {
+  const { customerId, items, total, status } = req.body;
 
-    console.log('Incoming order:', req.body);
-
+  try {
     if (!customerId || !Array.isArray(items) || items.length === 0) {
-        console.error('Validation failed: Invalid customerId or items');
-        return res.status(400).json({ error: 'Invalid order data. Please check customerId and items.' });
+      return res.status(400).json({
+        error: "Invalid order data. Please check customerId and items.",
+      });
     }
 
-    try {
-        // Validate product IDs
-        const productIds = items.map(item => item.productId);
-        console.log('Validating product IDs:', productIds);
+    // 1) Validate product IDs
+    const productIds = items.map((i) => i.productId);
+    const { data: productCheck, error: checkError } = await supabase
+      .schema("pos")
+      .from("products")
+      .select("product_id")
+      .in("product_id", productIds);
 
-        const { data: productCheck, error: checkError } = await supabase
-            .schema("pos")
-            .from('products')
-            .select('product_id')
-            .in('product_id', productIds);
+    if (checkError) throw checkError;
 
-        if (checkError) throw checkError;
+    if (!productCheck || productCheck.length !== productIds.length) {
+      return res.status(400).json({
+        error: "One or more product IDs are invalid",
+      });
+    }
 
-        if (productCheck.length !== productIds.length) {
-            return res.status(400).json({ error: 'One or more product IDs are invalid' });
-        }
+    // 2) Insert order
+    const { data: orderRow, error: orderError } = await supabase
+      .schema("pos")
+      .from("orders")
+      .insert([
+        {
+          customer_id: customerId,
+          total,
+          status: status || "PENDING",
+        },
+      ])
+      .select("order_id")
+      .single();
 
-        // Insert the order
-        const { data: orderData, error: orderError } = await supabase
-            .schema("pos")
-            .from('orders')
-            .insert([{ customer_id: customerId, total, status }])
-            .select('order_id')
-            .single();
+    if (orderError) throw orderError;
+    const orderId = orderRow.order_id;
 
-        if (orderError) throw orderError;
-
-        const orderId = orderData.order_id;
-
-        console.log('Order inserted with ID:', orderId);
-
-        // Insert order items
-        console.log('Inserting order items...');
-        const orderItems = items.map(item => ({
+    // 3) Insert each order item individually so we can capture order_item_id
+    for (const line of items) {
+      const { data: itemRow, error: itemErr } = await supabase
+        .schema("pos")
+        .from("order_items")
+        .insert([
+          {
             order_id: orderId,
-            product_id: item.productId,
-            quantity: item.quantity,
-            price_each: item.priceEach,
+            product_id: line.productId,
+            quantity: line.quantity,
+            price_each: line.priceEach,
+          },
+        ])
+        .select("order_item_id")
+        .single();
+
+      if (itemErr) throw itemErr;
+      const orderItemId = itemRow.order_item_id;
+
+      // 4) Insert applied customisations for this line (if any)
+      const applied = Array.isArray(line.appliedCustomisations)
+        ? line.appliedCustomisations
+        : [];
+
+      if (applied.length > 0) {
+        const rows = applied.map((c) => ({
+          order_item_id: orderItemId,
+          customisation_id: c.id || null, // may be null if it’s an ad-hoc customisation
+          name: String(c.name || "").trim(), // snapshot name
+          price_each: Number(c.price || 0),
         }));
 
-        const { error: itemsError } = await supabase
-            .schema("pos")
-            .from('order_items')
-            .insert(orderItems);
+        const { error: ocErr } = await supabase
+          .schema("pos")
+          .from("order_item_customisations")
+          .insert(rows);
 
-        if (itemsError) {
-            console.error('Error inserting order items:', itemsError);
-            return res.status(500).json({ error: 'Failed to record order items' });
-        }
-
-        console.log('Order items inserted successfully');
-
-        res.status(201).json({ message: 'Order recorded successfully!', orderId });
-    } catch (error) {
-        console.error('Error recording order:', error);
-        res.status(500).json({ error: 'Failed to record order' });
+        if (ocErr) throw ocErr;
+      }
     }
+
+    return res.status(201).json({
+      message: "Order recorded successfully!",
+      orderId,
+    });
+  } catch (error) {
+    console.error("Error recording order:", error);
+    return res.status(500).json({ error: "Failed to record order" });
+  }
 });
+
 
 // GET route to fetch all orders with their items
 router.get('/', async (req, res) => {
@@ -107,36 +133,44 @@ router.get('/', async (req, res) => {
     }
 });
 
-router.get('/today', async (req, res) => {
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+router.get("/today", async (req, res) => {
+  const today = new Date();
+  const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+  const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
 
-    try {
-        const { data: orders, error: ordersError } = await supabase
-            .schema('pos')
-            .from('orders')
-            .select(`
-                order_id,
-                total,
-                order_date,
-                items:order_items (
-                    product_id,
-                    quantity,
-                    price_each
-                )
-            `)
-            .gte('order_date', startOfDay)
-            .lte('order_date', endOfDay);
+  try {
+    const { data: orders, error: ordersError } = await supabase
+      .schema("pos")
+      .from("orders")
+      .select(`
+        order_id,
+        total,
+        order_date,
+        items:order_items (
+          order_item_id,
+          product_id,
+          quantity,
+          price_each,
+          customisations:order_item_customisations (
+            order_item_customisation_id,
+            customisation_id,
+            name,
+            price_each
+          )
+        )
+      `)
+      .gte("order_date", startOfDay)
+      .lte("order_date", endOfDay);
 
-        if (ordersError) throw ordersError;
+    if (ordersError) throw ordersError;
 
-        res.status(200).json(orders);
-    } catch (error) {
-        console.error('Error fetching today’s orders:', error);
-        res.status(500).json({ error: 'Failed to fetch today’s orders' });
-    }
+    res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error fetching today’s orders:", error);
+    res.status(500).json({ error: "Failed to fetch today’s orders" });
+  }
 });
+
 
 
 
